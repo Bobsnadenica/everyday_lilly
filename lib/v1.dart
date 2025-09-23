@@ -110,33 +110,23 @@ class _CalendarPageState extends State<CalendarPage> {
     setState(() {});
   }
 
-  Future<void> _savePhoto(DateTime date, File file) async {
-    final dir = await getApplicationDocumentsDirectory();
-    final fileName = DateFormat('yyyy-MM-dd').format(date) + '.jpg';
-    final newFile = File('${dir.path}/$fileName');
-
-    if (_photos.containsKey(fileName.split('.').first)) {
-      await _photos[fileName.split('.').first]!.delete();
-    }
-
-    final savedImage = await file.copy(newFile.path);
-
-    setState(() {
-      _photos[fileName.split('.').first] = savedImage;
-    });
-  }
-
   Future<void> _takePhoto(DateTime date) async {
     final pickedFile = await _picker.pickImage(source: ImageSource.camera);
     if (pickedFile != null) {
-      await _savePhoto(date, File(pickedFile.path));
-    }
-  }
+      final dir = await getApplicationDocumentsDirectory();
+      final fileName = DateFormat('yyyy-MM-dd').format(date) + '.jpg';
+      final newFile = File('${dir.path}/$fileName');
 
-  Future<void> _uploadFromGallery(DateTime date) async {
-    final pickedFile = await _picker.pickImage(source: ImageSource.gallery);
-    if (pickedFile != null) {
-      await _savePhoto(date, File(pickedFile.path));
+      // replace existing photo if exists
+      if (_photos.containsKey(fileName.split('.').first)) {
+        await _photos[fileName.split('.').first]!.delete();
+      }
+
+      final savedImage = await File(pickedFile.path).copy(newFile.path);
+
+      setState(() {
+        _photos[fileName.split('.').first] = savedImage;
+      });
     }
   }
 
@@ -150,15 +140,6 @@ class _CalendarPageState extends State<CalendarPage> {
           builder: (_) => PhotoGallery(
             initialPhotoKey: key,
             photos: _photos,
-            onDelete: (photoKey) async {
-              final file = _photos[photoKey];
-              if (file != null && await file.exists()) {
-                await file.delete();
-              }
-              setState(() {
-                _photos.remove(photoKey);
-              });
-            },
           ),
         ),
       );
@@ -183,23 +164,24 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  Future<void> _exportTimeLapse() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final zipPath = '${dir.path}/everyday_lilly.zip';
+Future<void> _exportTimeLapse() async {
+  final dir = await getApplicationDocumentsDirectory();
+  final zipPath = '${dir.path}/everyday_lilly.zip';
 
-    final encoder = ZipFileEncoder();
-    encoder.create(zipPath);
+  final encoder = ZipFileEncoder();
+  encoder.create(zipPath);
 
-    final keys = _photos.keys.toList()..sort();
-    for (final key in keys) {
-      final file = _photos[key]!;
-      encoder.addFile(file);
-    }
-
-    encoder.close();
-
-    Share.shareFiles([zipPath], text: 'My Everyday Lilly time-lapse photos');
+  final keys = _photos.keys.toList()..sort();
+  for (final key in keys) {
+    final file = _photos[key]!;
+    encoder.addFile(file); // Add file directly, no Archive needed
   }
+
+  encoder.close();
+
+  Share.shareFiles([zipPath], text: 'My Everyday Lilly time-lapse photos');
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -209,11 +191,6 @@ class _CalendarPageState extends State<CalendarPage> {
       appBar: AppBar(
         title: const Text('Everyday Lilly'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.add_photo_alternate),
-            tooltip: 'Upload from Gallery',
-            onPressed: () => _uploadFromGallery(now),
-          ),
           IconButton(
             icon: const Icon(Icons.access_time),
             tooltip: 'Set Reminder Time',
@@ -306,14 +283,9 @@ class _CalendarPageState extends State<CalendarPage> {
 class PhotoGallery extends StatefulWidget {
   final Map<String, File> photos;
   final String initialPhotoKey;
-  final Function(String) onDelete;
 
-  const PhotoGallery({
-    super.key,
-    required this.photos,
-    required this.initialPhotoKey,
-    required this.onDelete,
-  });
+  const PhotoGallery(
+      {super.key, required this.photos, required this.initialPhotoKey});
 
   @override
   State<PhotoGallery> createState() => _PhotoGalleryState();
@@ -331,44 +303,15 @@ class _PhotoGalleryState extends State<PhotoGallery> {
     _controller = PageController(initialPage: initialIndex);
   }
 
-  void _deletePhoto(int index) {
-    final key = keys[index];
-    widget.onDelete(key);
-    setState(() {
-      keys.removeAt(index);
-    });
-    if (keys.isEmpty) Navigator.pop(context);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Lilly Photos'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              final key = keys[_controller.page!.round()];
-              final file = widget.photos[key];
-              if (file != null) Share.shareFiles([file.path]);
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.delete),
-            onPressed: () {
-              final index = _controller.page!.round();
-              _deletePhoto(index);
-            },
-          ),
-        ],
-      ),
+      appBar: AppBar(title: const Text('Lilly Photos')),
       body: PageView.builder(
         controller: _controller,
         itemCount: keys.length,
         itemBuilder: (context, index) {
-          final photo = widget.photos[keys[index]];
-          if (photo == null) return const Center(child: Text('Photo missing'));
+          final photo = widget.photos[keys[index]]!;
           return Center(child: Image.file(photo, fit: BoxFit.contain));
         },
       ),
