@@ -87,6 +87,7 @@ class _PhotoGalleryState extends State<PhotoGallery> {
         actions: [
           IconButton(
             icon: const Icon(Icons.share),
+            tooltip: 'Share this photo',
             onPressed: () {
               final key = keys[_controller.page!.round()];
               final file = widget.photos[key];
@@ -97,6 +98,7 @@ class _PhotoGalleryState extends State<PhotoGallery> {
           ),
           IconButton(
             icon: const Icon(Icons.delete),
+            tooltip: 'Delete this photo',
             onPressed: () {
               final index = _controller.page!.round();
               _deletePhoto(index);
@@ -106,6 +108,7 @@ class _PhotoGalleryState extends State<PhotoGallery> {
       ),
       body: PageView.builder(
         controller: _controller,
+        physics: const BouncingScrollPhysics(),
         itemCount: keys.length,
         itemBuilder: (context, index) {
           final photoKey = keys[index];
@@ -117,7 +120,17 @@ class _PhotoGalleryState extends State<PhotoGallery> {
           return Stack(
             children: [
               Center(
-                child: Image.file(photo, fit: BoxFit.contain),
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  child: Image.file(
+                    photo,
+                    fit: BoxFit.contain,
+                    cacheWidth: 1080,
+                    cacheHeight: 1080,
+                  ),
+                ),
               ),
               if (note != null && note.isNotEmpty)
                 Positioned(
@@ -128,12 +141,16 @@ class _PhotoGalleryState extends State<PhotoGallery> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: Colors.black54,
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Text(
                         note,
-                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        style: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                         textAlign: TextAlign.center,
                       ),
                     ),

@@ -14,7 +14,17 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Everyday Lilly',
-      theme: ThemeData(primarySwatch: Colors.green),
+      theme: ThemeData(
+        brightness: Brightness.light,
+        primarySwatch: Colors.green,
+        scaffoldBackgroundColor: Colors.white,
+      ),
+      darkTheme: ThemeData(
+        brightness: Brightness.dark,
+        primarySwatch: Colors.green,
+        scaffoldBackgroundColor: Colors.black,
+      ),
+      themeMode: ThemeMode.system,
       home: const FrontPage(),
     );
   }

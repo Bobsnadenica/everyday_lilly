@@ -28,11 +28,23 @@ class _HomePageState extends State<HomePage> {
       try {
         final List<dynamic> list = json.decode(jsonString);
         final calendars = list.map((item) => Calendar.fromJson(item)).toList();
+        final savedId = await _loadSelectedCalendarId();
         setState(() {
           _calendars = calendars;
-          _selectedCalendar = _calendars.isNotEmpty
-              ? _calendars.first
-              : Calendar(id: 'everyday_lilly', name: 'Everyday Lilly');
+          if (savedId != null) {
+            final match = _calendars.where((c) => c.id == savedId).toList();
+            if (match.isNotEmpty) {
+              _selectedCalendar = match.first;
+            } else {
+              _selectedCalendar = _calendars.isNotEmpty
+                  ? _calendars.first
+                  : Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025);
+            }
+          } else {
+            _selectedCalendar = _calendars.isNotEmpty
+                ? _calendars.first
+                : Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025);
+          }
         });
       } catch (_) {
         _setDefaultCalendars();
@@ -45,12 +57,13 @@ class _HomePageState extends State<HomePage> {
   void _setDefaultCalendars() {
     setState(() {
       _calendars = [
-        Calendar(id: 'everyday_lilly', name: 'Everyday Lilly'),
-        Calendar(id: 'everyday_dandelion', name: 'Everyday Dandelion'),
+        Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025),
+        Calendar(id: 'everyday_dandelion', name: 'Everyday Dandelion', year: 2025),
       ];
       _selectedCalendar = _calendars.first;
     });
     _saveCalendars();
+    _saveSelectedCalendarId(_selectedCalendar!.id);
   }
 
   Future<void> _saveCalendars() async {
@@ -59,14 +72,28 @@ class _HomePageState extends State<HomePage> {
     await prefs.setString('calendars', json.encode(data));
   }
 
+  Future<void> _saveSelectedCalendarId(String id) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('selected_calendar_id', id);
+  }
+
+  Future<String?> _loadSelectedCalendarId() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('selected_calendar_id');
+  }
+
   void _selectCalendar(Calendar calendar) {
     setState(() {
       _selectedCalendar = calendar;
     });
+    _saveSelectedCalendarId(calendar.id);
     Navigator.of(context).pop();
   }
 
   Future<void> _addCalendar() async {
+    String _slugify(String s) =>
+        s.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_').replaceAll(RegExp(r'^_|_$'), '');
+
     final nameController = TextEditingController();
     final result = await showDialog<String>(
       context: context,
@@ -96,13 +123,14 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final id = result.toLowerCase().replaceAll(RegExp(r'\s+'), '_');
-      final newCalendar = Calendar(id: id, name: result);
+      final id = '${_slugify(result)}_${DateTime.now().millisecondsSinceEpoch}';
+      final newCalendar = Calendar(id: id, name: result, year: 2026);
       setState(() {
         _calendars.add(newCalendar);
         _selectedCalendar = newCalendar;
       });
       await _saveCalendars();
+      await _saveSelectedCalendarId(newCalendar.id);
     }
   }
 
@@ -185,7 +213,10 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      body: CalendarPage(calendar: _selectedCalendar!),
+      body: CalendarPage(
+        key: ValueKey(_selectedCalendar!.id),
+        calendar: _selectedCalendar!,
+      ),
     );
   }
 }

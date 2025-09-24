@@ -16,10 +16,15 @@ Future<void> initNotifications() async {
   tz.initializeTimeZones();
 
   // ✅ Ask for permission on Android 13+
-  await flutterLocalNotificationsPlugin
+  final granted = await flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
           AndroidFlutterLocalNotificationsPlugin>()
       ?.requestNotificationsPermission();
+
+  debugPrint('Notification permission requested, granted: $granted');
+  if (granted == true) {
+    await scheduleDailyReminder(); // Schedule the daily reminder once permissions are granted
+  }
 }
 
 Future<void> scheduleDailyReminder({TimeOfDay? time}) async {
