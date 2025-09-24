@@ -23,8 +23,8 @@ android {
         applicationId = "com.privileged.everyday_lilly"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 5
-        versionName = "5.0.0"
+        versionCode = 6
+        versionName = "6.0.0"
     }
 
     signingConfigs {
