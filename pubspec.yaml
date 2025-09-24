@@ -1,7 +1,7 @@
 name: everyday_lilly
 description: "Everyday Lilly"
 publish_to: 'none'
-version: 3.0.0+3
+version: 4.0.0+4
 
 environment:
   sdk: ^3.9.2
@@ -18,11 +18,21 @@ dependencies:
   share_plus: ^12.0.0
   archive: ^4.0.7
   shared_preferences: ^2.1.1
+  
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_icons:
+  android: true
+  ios: false
+  image_path: assets/icon.png
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon.png
+    - assets/lily_background.jpg

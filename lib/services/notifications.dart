@@ -24,23 +24,27 @@ Future<void> initNotifications() async {
 
 Future<void> scheduleDailyReminder({TimeOfDay? time}) async {
   final reminder = time ?? reminderTime;
-  await flutterLocalNotificationsPlugin.zonedSchedule(
-    0,
-    'Everyday Lilly 🌸',
-    'Don’t forget to take today’s Lilly photo!',
-    _nextInstanceOfTime(reminder.hour, reminder.minute),
-    const NotificationDetails(
-      android: AndroidNotificationDetails(
-        'daily_reminder_channel_id',
-        'Daily Reminder',
-        channelDescription: 'Reminder to take your Lilly photo',
-        importance: Importance.max,
-        priority: Priority.high,
+  try {
+    await flutterLocalNotificationsPlugin.zonedSchedule(
+      0,
+      'Everyday Lilly 🌸',
+      'Don’t forget to take today’s Lilly photo!',
+      _nextInstanceOfTime(reminder.hour, reminder.minute),
+      const NotificationDetails(
+        android: AndroidNotificationDetails(
+          'daily_reminder_channel_id',
+          'Daily Reminder',
+          channelDescription: 'Reminder to take your Lilly photo',
+          importance: Importance.max,
+          priority: Priority.high,
+        ),
       ),
-    ),
-    androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle,
-    matchDateTimeComponents: DateTimeComponents.time,
-  );
+      androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+      matchDateTimeComponents: DateTimeComponents.time,
+    );
+  } catch (e) {
+    debugPrint('Notification scheduling failed: $e');
+  }
 }
 
 tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {

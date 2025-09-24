@@ -7,12 +7,16 @@ class PhotoGallery extends StatefulWidget {
   final Map<String, File> photos;
   final String initialPhotoKey;
   final Function(String) onDelete;
+  final Map<String, String> notes;
+  final Function(String, String?) onNoteChanged;
 
   const PhotoGallery({
     super.key,
     required this.photos,
     required this.initialPhotoKey,
     required this.onDelete,
+    required this.notes,
+    required this.onNoteChanged,
   });
 
   @override
@@ -38,6 +42,41 @@ class _PhotoGalleryState extends State<PhotoGallery> {
       keys.removeAt(index);
     });
     if (keys.isEmpty) Navigator.pop(context);
+  }
+
+  Future<void> _editNoteDialog(String photoKey) async {
+    final currentNote = widget.notes[photoKey] ?? '';
+    final TextEditingController controller = TextEditingController(text: currentNote);
+    final result = await showDialog<String?>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Edit Note'),
+          content: TextField(
+            controller: controller,
+            maxLines: null,
+            autofocus: true,
+            decoration: const InputDecoration(
+              hintText: 'Enter note here',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, null),
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, controller.text.trim().isEmpty ? null : controller.text.trim()),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    if (result != null) {
+      widget.onNoteChanged(photoKey, result);
+      setState(() {});
+    }
   }
 
   @override
@@ -69,14 +108,48 @@ class _PhotoGalleryState extends State<PhotoGallery> {
         controller: _controller,
         itemCount: keys.length,
         itemBuilder: (context, index) {
-          final photo = widget.photos[keys[index]];
+          final photoKey = keys[index];
+          final photo = widget.photos[photoKey];
+          final note = widget.notes[photoKey];
           if (photo == null) {
             return const Center(child: Text('Photo missing'));
           }
-          return Center(
-            child: Image.file(photo, fit: BoxFit.contain),
+          return Stack(
+            children: [
+              Center(
+                child: Image.file(photo, fit: BoxFit.contain),
+              ),
+              if (note != null && note.isNotEmpty)
+                Positioned(
+                  top: 16,
+                  left: 16,
+                  right: 16,
+                  child: Center(
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black54,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        note,
+                        style: const TextStyle(color: Colors.white, fontSize: 16),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           );
         },
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          final index = _controller.page!.round();
+          final photoKey = keys[index];
+          _editNoteDialog(photoKey);
+        },
+        child: const Icon(Icons.edit),
       ),
     );
   }

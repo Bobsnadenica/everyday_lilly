@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
-import 'package:archive/archive_io.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 
@@ -24,6 +24,7 @@ class _CalendarPageState extends State<CalendarPage> {
   late final PageController _pageController;
 
   Map<String, File> get _photos => widget.calendar.photos;
+  final Map<String, String> _notes = {};
 
   @override
   void initState() {
@@ -116,6 +117,7 @@ class _CalendarPageState extends State<CalendarPage> {
           builder: (_) => PhotoGallery(
             initialPhotoKey: key,
             photos: _photos,
+            notes: _notes,
             onDelete: (photoKey) async {
               final file = _photos[photoKey];
               if (file != null && await file.exists()) {
@@ -123,6 +125,16 @@ class _CalendarPageState extends State<CalendarPage> {
               }
               setState(() {
                 _photos.remove(photoKey);
+                _notes.remove(photoKey);
+              });
+            },
+            onNoteChanged: (photoKey, newNote) {
+              setState(() {
+                if (newNote == null || newNote.isEmpty) {
+                  _notes.remove(photoKey);
+                } else {
+                  _notes[photoKey] = newNote;
+                }
               });
             },
           ),
@@ -160,6 +172,50 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
+  Future<void> _addOrEditNote(DateTime date) async {
+    final key = DateFormat('yyyy-MM-dd').format(date);
+    final TextEditingController controller = TextEditingController(text: _notes[key] ?? '');
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Add/Edit Note'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLines: null,
+            decoration: const InputDecoration(
+              hintText: 'Enter your note here',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final noteText = controller.text.trim();
+                setState(() {
+                  if (noteText.isEmpty) {
+                    _notes.remove(key);
+                  } else {
+                    _notes[key] = noteText;
+                  }
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Future<void> _pickReminderTime() async {
     final time = await showTimePicker(
       context: context,
@@ -177,24 +233,205 @@ class _CalendarPageState extends State<CalendarPage> {
   }
 
   Future<void> _exportTimeLapse() async {
-    final calendarDir = await _getCalendarDirectory();
-    final zipPath = '${calendarDir.path}/everyday_lilly.zip';
+    DateTime? startDate;
+    DateTime? endDate;
+    double playbackSpeed = 1.0;
 
-    final encoder = ZipFileEncoder();
-    encoder.create(zipPath);
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Export Time-Lapse'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  ListTile(
+                    title: Text('Start Date: ${startDate != null ? DateFormat('yyyy-MM-dd').format(startDate!) : 'Not selected'}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: startDate ?? DateTime.now(),
+                          firstDate: DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setStateDialog(() {
+                            startDate = picked;
+                            if (endDate != null && endDate!.isBefore(startDate!)) {
+                              endDate = startDate;
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  ListTile(
+                    title: Text('End Date: ${endDate != null ? DateFormat('yyyy-MM-dd').format(endDate!) : 'Not selected'}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.calendar_today),
+                      onPressed: () async {
+                        final picked = await showDatePicker(
+                          context: context,
+                          initialDate: endDate ?? DateTime.now(),
+                          firstDate: startDate ?? DateTime(2000),
+                          lastDate: DateTime.now(),
+                        );
+                        if (picked != null) {
+                          setStateDialog(() {
+                            endDate = picked;
+                            if (startDate != null && startDate!.isAfter(endDate!)) {
+                              startDate = endDate;
+                            }
+                          });
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Text('Playback Speed (sec/photo): '),
+                      const SizedBox(width: 8),
+                      DropdownButton<double>(
+                        value: playbackSpeed,
+                        items: const [
+                          DropdownMenuItem(value: 0.5, child: Text('0.5')),
+                          DropdownMenuItem(value: 1.0, child: Text('1.0')),
+                          DropdownMenuItem(value: 2.0, child: Text('2.0')),
+                        ],
+                        onChanged: (value) {
+                          if (value != null) {
+                            setStateDialog(() {
+                              playbackSpeed = value;
+                            });
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  if (startDate == null || endDate == null) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Please select both start and end dates.')),
+                    );
+                    return;
+                  }
+                  Navigator.of(context).pop();
+                },
+                child: const Text('Export'),
+              ),
+            ],
+          );
+        });
+      },
+    );
 
-    final keys = _photos.keys.toList()..sort();
-    for (final key in keys) {
-      final file = _photos[key]!;
-      encoder.addFile(file);
+    if (startDate == null || endDate == null) {
+      return;
     }
 
-    encoder.close();
+    // Filter photos by date range
+    final filteredKeys = _photos.keys.where((key) {
+      final photoDate = DateTime.tryParse(key);
+      if (photoDate == null) return false;
+      return !photoDate.isBefore(startDate!) && !photoDate.isAfter(endDate!);
+    }).toList()
+      ..sort();
 
-    Share.shareXFiles(
-      [XFile(zipPath)],
-      text: 'My ${widget.calendar.name} time-lapse photos',
+    if (filteredKeys.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No photos found in the selected date range.')),
+      );
+      return;
+    }
+
+    final calendarDir = await _getCalendarDirectory();
+
+    // Prepare temp_frames directory
+    final tempFramesDir = Directory('${calendarDir.path}/temp_frames');
+    if (await tempFramesDir.exists()) {
+      await tempFramesDir.delete(recursive: true);
+    }
+    await tempFramesDir.create(recursive: true);
+
+    // Copy photos into temp_frames as frame_0001.jpg, frame_0002.jpg, ... and collect their paths
+    final framePaths = <String>[];
+    int i = 1;
+    for (final key in filteredKeys) {
+      final src = _photos[key]!;
+      final dst = File('${tempFramesDir.path}/frame_${i.toString().padLeft(4, '0')}.jpg');
+      if (await dst.exists()) await dst.delete();
+      await src.copy(dst.path);
+      framePaths.add(dst.path);
+      i++;
+    }
+    print('About to call native encoder with ${framePaths.length} frames');
+    // Debug print the generated frame paths
+    print('Generated frame paths:');
+    for (final path in framePaths) {
+      print(path);
+    }
+    const channel = MethodChannel('everyday_lilly/timelapse');
+    final tempDir = await getTemporaryDirectory();
+    final outputMp4 = '${tempDir.path}/timelapse.mp4';
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) {
+        return const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Generating video...'),
+            ],
+          ),
+        );
+      },
     );
+
+    String? resultPath;
+    try {
+      resultPath = await channel.invokeMethod<String>('generateTimelapse', {
+        'imagePaths': framePaths,
+        'outputPath': outputMp4,
+        'fps': 1.0 / playbackSpeed,
+        'width': 1080,
+        'height': 1920,
+      });
+    } catch (e) {
+      resultPath = null;
+    }
+    // Dismiss loading dialog
+    Navigator.of(context, rootNavigator: true).pop();
+
+    if (resultPath != null) {
+      await Share.shareXFiles(
+        [XFile(resultPath)],
+        text: 'My ${widget.calendar.name} time-lapse video...',
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Failed to generate time-lapse video.')),
+      );
+    }
   }
 
   @override
@@ -249,12 +486,21 @@ class _CalendarPageState extends State<CalendarPage> {
                     final date = DateTime(now.year, monthIndex + 1, day);
                     final key = DateFormat('yyyy-MM-dd').format(date);
                     final photo = _photos[key];
+                    final hasNote = _notes.containsKey(key);
+                    final isFuture = date.isAfter(DateTime.now());
 
                     return GestureDetector(
-                      onTap: () => _openDayActions(date),
+                      onTap: () {
+                        if (isFuture) return;
+                        _openDayActions(date);
+                      },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: photo != null ? Colors.green.shade100 : Colors.white,
+                          color: isFuture
+                              ? Colors.grey.shade300
+                              : photo != null
+                                  ? Colors.green.shade100
+                                  : Colors.white,
                           border: Border.all(color: Colors.green.shade400),
                           borderRadius: BorderRadius.circular(12),
                         ),
@@ -282,6 +528,23 @@ class _CalendarPageState extends State<CalendarPage> {
                                 ),
                               ),
                             ),
+                            if (hasNote)
+                              Align(
+                                alignment: Alignment.bottomRight,
+                                child: Container(
+                                  margin: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white70,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  padding: const EdgeInsets.all(2),
+                                  child: const Icon(
+                                    Icons.note,
+                                    size: 20,
+                                    color: Colors.black87,
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),
