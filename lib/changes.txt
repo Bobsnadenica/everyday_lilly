@@ -2,6 +2,10 @@ V1:
 
 
 V2:
-✅ Upload a photo from the gallery (not just the camera)
-✅ Delete photos (both from the gallery view and directly from storage)
-✅ More intuitive photo gallery with delete & share actions
+📤 If no photo exists, users can choose Camera or Gallery from a bottom sheet.
+🗑️ Each calendar day thumbnail with a photo has a delete button in the corner.
+📸 In the photo viewer, the AppBar has a “more” menu that opens a bottom sheet with Share and Delete options.
+-You can no longer add photos for future dates
+- Multiple Calendar support - Everyday Lilly and Everyday Dandelion and more!
+Each calendar has its own folder for photos, so photos stay separate and safe.
+-Delete or rename the calendars
