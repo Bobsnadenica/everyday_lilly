@@ -127,8 +127,6 @@ class _PhotoGalleryState extends State<PhotoGallery> {
                   child: Image.file(
                     photo,
                     fit: BoxFit.contain,
-                    cacheWidth: 1080,
-                    cacheHeight: 1080,
                   ),
                 ),
               ),

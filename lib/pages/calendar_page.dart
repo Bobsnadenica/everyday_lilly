@@ -1,10 +1,12 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:archive/archive_io.dart';
@@ -22,6 +24,21 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  List<String> _quotes = [];
+  String? _todaysQuote;
+  // Returns an asset path for background based on current time of day
+  String _getBackgroundForTime() {
+    final hour = DateTime.now().hour;
+    if (hour >= 6 && hour < 12) {
+      return 'assets/backgrounds/morning.png';
+    } else if (hour >= 12 && hour < 18) {
+      return 'assets/backgrounds/afternoon.png';
+    } else if (hour >= 18 && hour < 20) {
+      return 'assets/backgrounds/evening.png';
+    } else {
+      return 'assets/backgrounds/night.png';
+    }
+  }
   final ImagePicker _picker = ImagePicker();
   late final PageController _pageController;
 
@@ -35,7 +52,24 @@ class _CalendarPageState extends State<CalendarPage> {
     _pageController = PageController(initialPage: DateTime.now().month - 1);
     _currentYear = widget.calendar.year;
     _loadPhotos();
+    _loadQuotes();
     scheduleDailyReminder();
+  }
+
+  Future<void> _loadQuotes() async {
+    try {
+      final data = await rootBundle.loadString('assets/quotes/motivational_quotes.txt');
+      final allQuotes = data.split('\n').where((line) => line.trim().isNotEmpty).toList();
+      if (allQuotes.isNotEmpty) {
+        setState(() {
+          _quotes = allQuotes;
+          final random = Random();
+          _todaysQuote = _quotes[random.nextInt(_quotes.length)];
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading quotes: $e');
+    }
   }
 
   @override
@@ -177,6 +211,206 @@ class _CalendarPageState extends State<CalendarPage> {
       await _savePhoto(date, File(pickedFile.path));
     }
   }
+
+  void _showLifeCalcDialog() {
+  String selectedCategory = 'Human';
+  String? selectedSubType;
+  final yearController = TextEditingController();
+  final monthController = TextEditingController();
+  final dayController = TextEditingController();
+
+  final Map<String, Map<String, int>> lifeData = {
+    'Human': {
+      'Average Human': 80,
+    },
+    'Animal': {
+      'Dog (Small Breed)': 15,
+      'Dog (Large Breed)': 10,
+      'Cat': 16,
+      'Horse': 30,
+      'Elephant': 70,
+      'Parrot': 60,
+      'Goldfish': 10,
+      'Turtle': 100,
+    },
+    'Plant': {
+      'Flower Plant': 3,
+      'Shrub': 10,
+      'Bamboo': 20,
+      'Fruit Tree': 25,
+      'Oak Tree': 300,
+      'Pine Tree': 500,
+      'Cherry Blossom Tree': 40,
+      'Cactus': 150,
+    },
+    'Structure': {
+      'Building': 100,
+      'Bridge': 75,
+      'Car': 15,
+      'Road': 50,
+      'Ship': 30,
+      'Airplane': 30,
+    },
+    'Nature': {
+      'River': 1000,
+      'Mountain': 1000000,
+      'Planet': 4500000000,
+      'Star': 10000000000,
+      'Galaxy': 100000000000,
+    },
+  };
+
+  showDialog(
+    context: context,
+    builder: (context) {
+      return StatefulBuilder(
+        builder: (context, setStateDialog) {
+          return AlertDialog(
+            title: const Text('Life Expectancy Calculator'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Category selection
+                  DropdownButton<String>(
+                    value: selectedCategory,
+                    onChanged: (value) {
+                      if (value != null) {
+                        setStateDialog(() {
+                          selectedCategory = value;
+                          selectedSubType = null;
+                        });
+                      }
+                    },
+                    items: lifeData.keys
+                        .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
+                        .toList(),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Subtype selection
+                  if (lifeData[selectedCategory]!.keys.length > 1)
+                    DropdownButton<String>(
+                      value: selectedSubType,
+                      hint: const Text('Select type'),
+                      onChanged: (value) {
+                        if (value != null) {
+                          setStateDialog(() {
+                            selectedSubType = value;
+                          });
+                        }
+                      },
+                      items: lifeData[selectedCategory]!.keys
+                          .map((sub) => DropdownMenuItem(value: sub, child: Text(sub)))
+                          .toList(),
+                    ),
+
+                  const SizedBox(height: 12),
+
+                  // Age input fields
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: yearController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Years'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: monthController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Months'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: TextField(
+                          controller: dayController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(labelText: 'Days'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
+                child: const Text('Close'),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  final years = int.tryParse(yearController.text) ?? 0;
+                  final months = int.tryParse(monthController.text) ?? 0;
+                  final days = int.tryParse(dayController.text) ?? 0;
+
+                  if (months < 0 || months > 11 || days < 0 || days > 30) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Months must be 0-11 and days must be 0-30')),
+                    );
+                    return;
+                  }
+
+                  final totalAge = years + (months / 12.0) + (days / 365.0);
+
+                  final subMap = lifeData[selectedCategory]!;
+                  final typeKey = selectedSubType ?? subMap.keys.first;
+                  final avgLife = subMap[typeKey]!;
+
+                  final remaining = (avgLife - totalAge).clamp(0, avgLife);
+                  final percent = ((remaining / avgLife) * 100).toStringAsFixed(1);
+
+                  Navigator.of(context, rootNavigator: true).pop();
+
+                  showDialog(
+                    context: context,
+                    builder: (_) {
+                      return AlertDialog(
+                        title: Text('$typeKey Life Remaining'),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            CircularProgressIndicator(
+                              value: remaining / avgLife,
+                              backgroundColor: Colors.grey.shade300,
+                              color: Colors.green,
+                              strokeWidth: 8,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              '${remaining.toStringAsFixed(2)} years remaining ($percent% left)',
+                              style: const TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              if (Navigator.of(context, rootNavigator: true).canPop()) {
+                                Navigator.of(context, rootNavigator: true).pop();
+                              }
+                            },
+                            child: const Text('Close'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                child: const Text('Calculate'),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
 
   void _openDayActions(DateTime date) {
     if (date.isAfter(DateTime.now())) {
@@ -542,8 +776,11 @@ class _CalendarPageState extends State<CalendarPage> {
     final now = DateTime.now();
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         title: Text(widget.calendar.name),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
         actions: [
           PopupMenuButton<String>(
             onSelected: (value) {
@@ -594,128 +831,247 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
         ],
       ),
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFFF8FFF8), Color(0xFFE8F5E9)],
+      body: Stack(
+        children: [
+          // Background image
+          Positioned.fill(
+            child: Image.asset(
+              _getBackgroundForTime(),
+              fit: BoxFit.cover,
+            ),
           ),
-        ),
-        child: PageView.builder(
-          controller: _pageController,
-          itemCount: 12,
-          itemBuilder: (context, monthIndex) {
-            final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
-            final daysInMonth = DateUtils.getDaysInMonth(_currentYear, monthIndex + 1);
-            final weekdayOffset = monthDate.weekday - 1;
-
-            return Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(8),
-                  child: Text(
-                    DateFormat('MMMM yyyy').format(monthDate),
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                  ),
+          // Overlay gradient for readability
+          Positioned.fill(
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: Theme.of(context).brightness == Brightness.dark
+                      ? [Colors.black.withOpacity(0.55), Colors.black.withOpacity(0.15)]
+                      : [Colors.black.withOpacity(0.35), Colors.transparent],
                 ),
-                Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(8),
-                    itemCount: daysInMonth + weekdayOffset,
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 7,
-                      crossAxisSpacing: 4,
-                      mainAxisSpacing: 4,
-                    ),
-                    itemBuilder: (context, index) {
-                      if (index < weekdayOffset) return const SizedBox.shrink();
-                      final day = index - weekdayOffset + 1;
-                      final date = DateTime(_currentYear, monthIndex + 1, day);
-                      final key = DateFormat('yyyy-MM-dd').format(date);
-                      final photo = _photos[key];
-                      final hasNote = _notes.containsKey(key);
-                      final isFuture = date.isAfter(DateTime.now());
+              ),
+            ),
+          ),
+          // Content
+          Positioned.fill(
+            child: PageView.builder(
+              controller: _pageController,
+              itemCount: 12,
+              itemBuilder: (context, monthIndex) {
+                final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
+                final daysInMonth = DateUtils.getDaysInMonth(_currentYear, monthIndex + 1);
+                final weekdayOffset = monthDate.weekday - 1;
 
-                      return GestureDetector(
-                        onTap: () {
-                          if (isFuture) return;
-                          _openDayActions(date);
-                        },
-                        onLongPress: () {
-                          if (!isFuture) _addOrEditNote(date);
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: isFuture
-                                ? Colors.grey.shade300
-                                : photo != null
-                                    ? Colors.green.shade100
-                                    : Colors.white,
-                            border: Border.all(color: Colors.green.shade400),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Stack(
-                            children: [
-                              if (photo != null)
-                                Positioned.fill(
-                                  child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.file(
-                                      photo,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 300,
-                                      cacheHeight: 300,
+                return Column(
+                  children: [
+                    SizedBox(height: MediaQuery.of(context).padding.top + 8),
+                    // Month header with pill background
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark
+                              ? Colors.black.withOpacity(0.5)
+                              : Colors.white.withOpacity(0.55),
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: Text(
+                          DateFormat('MMMM yyyy').format(monthDate),
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                    // Weekday labels
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [
+                          _WeekdayLabel('Mon'),
+                          _WeekdayLabel('Tue'),
+                          _WeekdayLabel('Wed'),
+                          _WeekdayLabel('Thu'),
+                          _WeekdayLabel('Fri'),
+                          _WeekdayLabel('Sat'),
+                          _WeekdayLabel('Sun'),
+                        ],
+                      ),
+                    ),
+                    Expanded(
+                      child: GridView.builder(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: daysInMonth + weekdayOffset,
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 7,
+                          crossAxisSpacing: 6,
+                          mainAxisSpacing: 6,
+                          childAspectRatio: 1.0,
+                        ),
+                        itemBuilder: (context, index) {
+                          if (index < weekdayOffset) return const SizedBox.shrink();
+                          final day = index - weekdayOffset + 1;
+                          final date = DateTime(_currentYear, monthIndex + 1, day);
+                          final key = DateFormat('yyyy-MM-dd').format(date);
+                          final photo = _photos[key];
+                          final hasNote = _notes.containsKey(key);
+                          final isFuture = date.isAfter(DateTime.now());
+                          final now = DateTime.now();
+                          final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+
+                          return GestureDetector(
+                            onTap: () {
+                              if (isFuture) return;
+                              _openDayActions(date);
+                            },
+                            onLongPress: () {
+                              if (!isFuture) _addOrEditNote(date);
+                            },
+                            child: Container(
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: photo != null
+                                    ? Colors.transparent
+                                    : (isFuture
+                                        ? Colors.grey.withOpacity(0.15)
+                                        : (Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.white.withOpacity(0.08)
+                                            : Colors.white.withOpacity(0.85))),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.18),
+                                    blurRadius: 6,
+                                    offset: const Offset(0, 3),
+                                  ),
+                                ],
+                                border: isToday
+                                    ? Border.all(
+                                        color: Theme.of(context).colorScheme.secondary,
+                                        width: 2,
+                                      )
+                                    : null,
+                              ),
+                              child: Stack(
+                                children: [
+                                  if (photo != null)
+                                    Positioned.fill(
+                                      child: ClipOval(
+                                        child: Image.file(
+                                          photo,
+                                          fit: BoxFit.cover,
+                                          cacheWidth: 300,
+                                          cacheHeight: 300,
+                                        ),
+                                      ),
+                                    ),
+                                  Align(
+                                    alignment: Alignment.topLeft,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(6),
+                                      child: Text(
+                                        '$day',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16,
+                                          color: photo != null
+                                              ? Colors.white
+                                              : (Theme.of(context).brightness == Brightness.dark
+                                                  ? Colors.white
+                                                  : Colors.black87),
+                                          shadows: photo != null
+                                              ? [
+                                                  Shadow(
+                                                    blurRadius: 4,
+                                                    color: Colors.black.withOpacity(0.7),
+                                                    offset: const Offset(1, 1),
+                                                  ),
+                                                ]
+                                              : null,
+                                        ),
+                                      ),
                                     ),
                                   ),
-                                ),
-                              Align(
-                                alignment: Alignment.topLeft,
-                                child: Container(
-                                  margin: const EdgeInsets.all(4),
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).brightness == Brightness.dark ? Colors.black54 : Colors.white70,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Text(
-                                    '$day',
-                                    style: const TextStyle(fontWeight: FontWeight.bold),
-                                  ),
+                                  if (hasNote)
+                                    Align(
+                                      alignment: Alignment.bottomRight,
+                                      child: Container(
+                                        margin: const EdgeInsets.all(4),
+                                        decoration: BoxDecoration(
+                                          color: Colors.black.withOpacity(0.5),
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: Colors.black.withOpacity(0.3),
+                                              blurRadius: 3,
+                                              offset: const Offset(1, 1),
+                                            ),
+                                          ],
+                                        ),
+                                        padding: const EdgeInsets.all(2),
+                                        child: const Icon(
+                                          Icons.note,
+                                          size: 20,
+                                          color: Colors.white,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    if (_todaysQuote != null)
+                      Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                          child: AnimatedOpacity(
+                            opacity: 1.0,
+                            duration: const Duration(seconds: 2),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white.withOpacity(0.1)
+                                    : Colors.black.withOpacity(0.05),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                _todaysQuote!,
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontStyle: FontStyle.italic,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.white70
+                                      : Colors.black87,
                                 ),
                               ),
-                              if (hasNote)
-                                Align(
-                                  alignment: Alignment.bottomRight,
-                                  child: Container(
-                                    margin: const EdgeInsets.all(4),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).brightness == Brightness.dark ? Colors.black54 : Colors.white70,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    padding: const EdgeInsets.all(2),
-                                    child: Icon(
-                                      Icons.note,
-                                      size: 20,
-                                      color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
-                                    ),
-                                  ),
-                                ),
-                            ],
+                            ),
                           ),
                         ),
-                      );
-                    },
-                  ),
-                ),
-              ],
-            );
-          },
-        ),
+                      ),
+                    Spacer(),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
+          FloatingActionButton(
+            heroTag: 'life_calc',
+            backgroundColor: Colors.blue,
+            child: const Icon(Icons.calculate),
+            onPressed: _showLifeCalcDialog,
+          ),
+          const SizedBox(height: 12),
           FloatingActionButton(
             heroTag: 'jump_today',
             backgroundColor: Colors.green,
@@ -725,6 +1081,38 @@ class _CalendarPageState extends State<CalendarPage> {
             },
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _WeekdayLabel extends StatelessWidget {
+  final String text;
+  const _WeekdayLabel(this.text);
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+          decoration: BoxDecoration(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? Colors.white.withOpacity(0.06)
+                : Colors.white.withOpacity(0.6),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.white
+                  : Colors.black87,
+            ),
+          ),
+        ),
       ),
     );
   }

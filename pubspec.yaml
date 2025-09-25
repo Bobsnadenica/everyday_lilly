@@ -36,3 +36,8 @@ flutter:
   assets:
     - assets/icon.png
     - assets/lily_background.jpg
+    - assets/backgrounds/morning.png
+    - assets/backgrounds/afternoon.png
+    - assets/backgrounds/evening.png
+    - assets/backgrounds/night.png
+    - assets/quotes/motivational_quotes.txt

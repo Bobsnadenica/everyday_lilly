@@ -8,6 +8,15 @@ void main() async {
   runApp(const MyApp());
 }
 
+ThemeMode _getThemeModeForTime() {
+  final hour = DateTime.now().hour;
+  if (hour >= 6 && hour < 18) {
+    return ThemeMode.light;
+  } else {
+    return ThemeMode.dark;
+  }
+}
+
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
   @override
@@ -24,7 +33,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.green,
         scaffoldBackgroundColor: Colors.black,
       ),
-      themeMode: ThemeMode.system,
+      themeMode: _getThemeModeForTime(),
       home: const FrontPage(),
     );
   }
