@@ -124,7 +124,7 @@ class _HomePageState extends State<HomePage> {
 
     if (result != null && result.isNotEmpty) {
       final id = '${_slugify(result)}_${DateTime.now().millisecondsSinceEpoch}';
-      final newCalendar = Calendar(id: id, name: result, year: 2026);
+      final newCalendar = Calendar(id: id, name: result, year: DateTime.now().year);
       setState(() {
         _calendars.add(newCalendar);
         _selectedCalendar = newCalendar;
@@ -190,6 +190,42 @@ class _HomePageState extends State<HomePage> {
                     ),
                     selected: calendar.id == _selectedCalendar!.id,
                     onTap: () => _selectCalendar(calendar),
+                    trailing: (calendar.name == 'Everyday Lilly' || calendar.name == 'Everyday Dandelion')
+                        ? null
+                        : IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () async {
+                              final confirm = await showDialog<bool>(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title: Text('Delete Calendar'),
+                                  content: Text('Are you sure you want to delete ${calendar.name}?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, false),
+                                      child: const Text('Cancel'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context, true),
+                                      child: const Text('Delete'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                              if (confirm == true) {
+                                setState(() {
+                                  _calendars.remove(calendar);
+                                  if (_selectedCalendar == calendar) {
+                                    _selectedCalendar = _calendars.isNotEmpty ? _calendars.first : null;
+                                  }
+                                });
+                                await _saveCalendars();
+                                if (_selectedCalendar != null) {
+                                  await _saveSelectedCalendarId(_selectedCalendar!.id);
+                                }
+                              }
+                            },
+                          ),
                   );
                 },
               ),

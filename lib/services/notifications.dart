@@ -12,24 +12,37 @@ Future<void> initNotifications() async {
   const android = AndroidInitializationSettings('@mipmap/ic_launcher');
   const settings = InitializationSettings(android: android);
 
-  await flutterLocalNotificationsPlugin.initialize(settings);
+  await flutterLocalNotificationsPlugin.initialize(
+    settings,
+    onDidReceiveNotificationResponse: (details) {
+      debugPrint('Notification tapped: ${details.payload}');
+    },
+  );
+
   tz.initializeTimeZones();
 
-  // ✅ Ask for permission on Android 13+
-  final granted = await flutterLocalNotificationsPlugin
+  final androidPlugin = flutterLocalNotificationsPlugin
       .resolvePlatformSpecificImplementation<
-          AndroidFlutterLocalNotificationsPlugin>()
-      ?.requestNotificationsPermission();
+          AndroidFlutterLocalNotificationsPlugin>();
 
-  debugPrint('Notification permission requested, granted: $granted');
-  if (granted == true) {
-    await scheduleDailyReminder(); // Schedule the daily reminder once permissions are granted
+  if (androidPlugin != null) {
+    final granted = await androidPlugin.requestNotificationsPermission();
+    debugPrint('Notification permission requested, granted: $granted');
+
+    if (granted == true) {
+      await scheduleDailyReminder();
+    } else {
+      debugPrint('Permission denied, cannot schedule notifications.');
+    }
+  } else {
+    debugPrint('Android plugin not available, cannot request permission.');
   }
 }
 
 Future<void> scheduleDailyReminder({TimeOfDay? time}) async {
   final reminder = time ?? reminderTime;
   try {
+    debugPrint('Scheduling notification at ${reminder.hour}:${reminder.minute}');
     await flutterLocalNotificationsPlugin.zonedSchedule(
       0,
       'Everyday Lilly 🌸',

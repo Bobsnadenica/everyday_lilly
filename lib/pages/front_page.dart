@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'home_page.dart';
+import '../pages/home_page.dart';
 
 class FrontPage extends StatelessWidget {
   const FrontPage({super.key});
@@ -11,7 +11,7 @@ class FrontPage extends StatelessWidget {
         children: [
           Positioned.fill(
             child: Image.asset(
-              'assets/lily_background.jpg', // Replace with your actual image asset path
+              'assets/lily_background.jpg', 
               fit: BoxFit.cover,
             ),
           ),
@@ -45,7 +45,7 @@ class FrontPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    "Capture a photo each day and see your growth journey unfold.",
+                    "Capture a photo each day and see your growth journey unfold.\nInspired by my daughter Lilly.\nI love you, Lilly <3",
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                           color: Colors.grey.shade700,
@@ -63,9 +63,10 @@ class FrontPage extends StatelessWidget {
                       elevation: 5,
                     ),
                     onPressed: () {
-                      Navigator.pushReplacement(
+                      Navigator.pushAndRemoveUntil(
                         context,
                         MaterialPageRoute(builder: (_) => const HomePage()),
+                        (Route<dynamic> route) => false,
                       );
                     },
                     child: const Text(

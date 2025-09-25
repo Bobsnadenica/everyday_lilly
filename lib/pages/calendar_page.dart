@@ -14,6 +14,7 @@ import 'package:archive/archive_io.dart';
 import '../models/calendar.dart';
 import '../services/notifications.dart';
 import 'photo_gallery.dart';
+import '../pages/front_page.dart';
 
 class CalendarPage extends StatefulWidget {
   final Calendar calendar;
@@ -26,17 +27,24 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   List<String> _quotes = [];
   String? _todaysQuote;
-  // Returns an asset path for background based on current time of day
+  // Returns an asset path for background based on current time of day, picking randomly from variants
   String _getBackgroundForTime() {
     final hour = DateTime.now().hour;
+    final random = Random();
+
+    List<String> morning = ['1.jpg', '11.jpg', '111.jpg'];
+    List<String> afternoon = ['2.jpg', '22.jpg', '222.jpg'];
+    List<String> evening = ['3.jpg', '33.jpg', '333.jpg'];
+    List<String> night = ['4.jpg', '44.jpg', '444.jpg'];
+
     if (hour >= 6 && hour < 12) {
-      return 'assets/backgrounds/morning.png';
+      return 'assets/backgrounds/${morning[random.nextInt(morning.length)]}';
     } else if (hour >= 12 && hour < 18) {
-      return 'assets/backgrounds/afternoon.png';
+      return 'assets/backgrounds/${afternoon[random.nextInt(afternoon.length)]}';
     } else if (hour >= 18 && hour < 20) {
-      return 'assets/backgrounds/evening.png';
+      return 'assets/backgrounds/${evening[random.nextInt(evening.length)]}';
     } else {
-      return 'assets/backgrounds/night.png';
+      return 'assets/backgrounds/${night[random.nextInt(night.length)]}';
     }
   }
   final ImagePicker _picker = ImagePicker();
@@ -50,7 +58,7 @@ class _CalendarPageState extends State<CalendarPage> {
   void initState() {
     super.initState();
     _pageController = PageController(initialPage: DateTime.now().month - 1);
-    _currentYear = widget.calendar.year;
+    _currentYear = DateTime.now().year;
     _loadPhotos();
     _loadQuotes();
     scheduleDailyReminder();
@@ -778,10 +786,36 @@ class _CalendarPageState extends State<CalendarPage> {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
-        title: Text(widget.calendar.name),
+        title: const SizedBox.shrink(),
         backgroundColor: Colors.transparent,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.home),
+            tooltip: 'Go to Front Page',
+            onPressed: () {
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (context) => const FrontPage()),
+                (Route<dynamic> route) => false,
+              );
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.arrow_back),
+            onPressed: () {
+              setState(() {
+                _currentYear--;
+              });
+            },
+          ),
+          IconButton(
+            icon: Icon(Icons.arrow_forward),
+            onPressed: () {
+              setState(() {
+                _currentYear++;
+              });
+            },
+          ),
           PopupMenuButton<String>(
             onSelected: (value) {
               switch (value) {
@@ -856,231 +890,244 @@ class _CalendarPageState extends State<CalendarPage> {
           ),
           // Content
           Positioned.fill(
-            child: PageView.builder(
-              controller: _pageController,
-              itemCount: 12,
-              itemBuilder: (context, monthIndex) {
-                final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
-                final daysInMonth = DateUtils.getDaysInMonth(_currentYear, monthIndex + 1);
-                final weekdayOffset = monthDate.weekday - 1;
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 100), // to prevent FAB overlap
+              child: PageView.builder(
+                controller: _pageController,
+                itemCount: 12,
+                itemBuilder: (context, monthIndex) {
+                  final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
+                  final daysInMonth = DateUtils.getDaysInMonth(_currentYear, monthIndex + 1);
+                  final weekdayOffset = monthDate.weekday - 1;
 
-                return Column(
-                  children: [
-                    SizedBox(height: MediaQuery.of(context).padding.top + 8),
-                    // Month header with pill background
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).brightness == Brightness.dark
-                              ? Colors.black.withOpacity(0.5)
-                              : Colors.white.withOpacity(0.55),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Text(
-                          DateFormat('MMMM yyyy').format(monthDate),
-                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  return Column(
+                    children: [
+                      SizedBox(height: MediaQuery.of(context).padding.top + 8),
+                      // Month header with pill background
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? Colors.black.withOpacity(0.5)
+                                : Colors.white.withOpacity(0.55),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Text(
+                            DateFormat('MMMM yyyy').format(monthDate),
+                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                          ),
                         ),
                       ),
-                    ),
-                    // Weekday labels
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: const [
-                          _WeekdayLabel('Mon'),
-                          _WeekdayLabel('Tue'),
-                          _WeekdayLabel('Wed'),
-                          _WeekdayLabel('Thu'),
-                          _WeekdayLabel('Fri'),
-                          _WeekdayLabel('Sat'),
-                          _WeekdayLabel('Sun'),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: GridView.builder(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: daysInMonth + weekdayOffset,
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: 7,
-                          crossAxisSpacing: 6,
-                          mainAxisSpacing: 6,
-                          childAspectRatio: 1.0,
+                      // Weekday labels
+                      Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: const [
+                            _WeekdayLabel('Mon'),
+                            _WeekdayLabel('Tue'),
+                            _WeekdayLabel('Wed'),
+                            _WeekdayLabel('Thu'),
+                            _WeekdayLabel('Fri'),
+                            _WeekdayLabel('Sat'),
+                            _WeekdayLabel('Sun'),
+                          ],
                         ),
-                        itemBuilder: (context, index) {
-                          if (index < weekdayOffset) return const SizedBox.shrink();
-                          final day = index - weekdayOffset + 1;
-                          final date = DateTime(_currentYear, monthIndex + 1, day);
-                          final key = DateFormat('yyyy-MM-dd').format(date);
-                          final photo = _photos[key];
-                          final hasNote = _notes.containsKey(key);
-                          final isFuture = date.isAfter(DateTime.now());
-                          final now = DateTime.now();
-                          final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+                      ),
+                      Expanded(
+                        child: GridView.builder(
+                          padding: const EdgeInsets.all(8),
+                          itemCount: daysInMonth + weekdayOffset,
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 7,
+                            crossAxisSpacing: 6,
+                            mainAxisSpacing: 6,
+                            childAspectRatio: 1.0,
+                          ),
+                          itemBuilder: (context, index) {
+                            if (index < weekdayOffset) return const SizedBox.shrink();
+                            final day = index - weekdayOffset + 1;
+                            final date = DateTime(_currentYear, monthIndex + 1, day);
+                            final key = DateFormat('yyyy-MM-dd').format(date);
+                            final photo = _photos[key];
+                            final hasNote = _notes.containsKey(key);
+                            final isFuture = date.isAfter(DateTime.now());
+                            final now = DateTime.now();
+                            final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
 
-                          return GestureDetector(
-                            onTap: () {
-                              if (isFuture) return;
-                              _openDayActions(date);
-                            },
-                            onLongPress: () {
-                              if (!isFuture) _addOrEditNote(date);
-                            },
-                            child: Container(
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: photo != null
-                                    ? Colors.transparent
-                                    : (isFuture
-                                        ? Colors.grey.withOpacity(0.15)
-                                        : (Theme.of(context).brightness == Brightness.dark
-                                            ? Colors.white.withOpacity(0.08)
-                                            : Colors.white.withOpacity(0.85))),
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withOpacity(0.18),
-                                    blurRadius: 6,
-                                    offset: const Offset(0, 3),
-                                  ),
-                                ],
-                                border: isToday
-                                    ? Border.all(
-                                        color: Theme.of(context).colorScheme.secondary,
-                                        width: 2,
-                                      )
-                                    : null,
-                              ),
-                              child: Stack(
-                                children: [
-                                  if (photo != null)
-                                    Positioned.fill(
-                                      child: ClipOval(
-                                        child: Image.file(
-                                          photo,
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 300,
-                                          cacheHeight: 300,
+                            return GestureDetector(
+                              onTap: () {
+                                if (isFuture) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('You cannot add a photo for a future date.')),
+                                  );
+                                  return;
+                                }
+                                _openDayActions(date);
+                              },
+                              onLongPress: () {
+                                if (!isFuture) _addOrEditNote(date);
+                              },
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: photo != null
+                                      ? Colors.transparent
+                                      : (isFuture
+                                          ? (Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.red.withOpacity(0.2)
+                                              : Colors.red.withOpacity(0.3))
+                                          : (Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.white.withOpacity(0.08)
+                                              : Colors.white.withOpacity(0.85))),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.18),
+                                      blurRadius: 6,
+                                      offset: const Offset(0, 3),
+                                    ),
+                                  ],
+                                  border: isToday
+                                      ? Border.all(
+                                          color: Theme.of(context).colorScheme.secondary,
+                                          width: 2,
+                                        )
+                                      : null,
+                                ),
+                                child: Stack(
+                                  children: [
+                                    if (photo != null)
+                                      Positioned.fill(
+                                        child: ClipOval(
+                                          child: Image.file(
+                                            photo,
+                                            fit: BoxFit.cover,
+                                            cacheWidth: 300,
+                                            cacheHeight: 300,
+                                          ),
                                         ),
                                       ),
-                                    ),
-                                  Align(
-                                    alignment: Alignment.topLeft,
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(6),
-                                      child: Text(
-                                        '$day',
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 16,
-                                          color: photo != null
-                                              ? Colors.white
-                                              : (Theme.of(context).brightness == Brightness.dark
-                                                  ? Colors.white
-                                                  : Colors.black87),
-                                          shadows: photo != null
-                                              ? [
-                                                  Shadow(
-                                                    blurRadius: 4,
-                                                    color: Colors.black.withOpacity(0.7),
-                                                    offset: const Offset(1, 1),
-                                                  ),
-                                                ]
-                                              : null,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                  if (hasNote)
                                     Align(
-                                      alignment: Alignment.bottomRight,
-                                      child: Container(
-                                        margin: const EdgeInsets.all(4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.black.withOpacity(0.5),
-                                          shape: BoxShape.circle,
-                                          boxShadow: [
-                                            BoxShadow(
-                                              color: Colors.black.withOpacity(0.3),
-                                              blurRadius: 3,
-                                              offset: const Offset(1, 1),
-                                            ),
-                                          ],
-                                        ),
-                                        padding: const EdgeInsets.all(2),
-                                        child: const Icon(
-                                          Icons.note,
-                                          size: 20,
-                                          color: Colors.white,
+                                      alignment: Alignment.topLeft,
+                                      child: Padding(
+                                        padding: const EdgeInsets.all(6),
+                                        child: Text(
+                                          '$day',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 16,
+                                            color: photo != null
+                                                ? Colors.white
+                                                : (Theme.of(context).brightness == Brightness.dark
+                                                    ? Colors.white
+                                                    : Colors.black87),
+                                            shadows: photo != null
+                                                ? [
+                                                    Shadow(
+                                                      blurRadius: 4,
+                                                      color: Colors.black.withOpacity(0.7),
+                                                      offset: const Offset(1, 1),
+                                                    ),
+                                                  ]
+                                                : null,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                ],
+                                    if (hasNote)
+                                      Align(
+                                        alignment: Alignment.bottomRight,
+                                        child: Container(
+                                          margin: const EdgeInsets.all(4),
+                                          decoration: BoxDecoration(
+                                            color: Colors.black.withOpacity(0.5),
+                                            shape: BoxShape.circle,
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(0.3),
+                                                blurRadius: 3,
+                                                offset: const Offset(1, 1),
+                                              ),
+                                            ],
+                                          ),
+                                          padding: const EdgeInsets.all(2),
+                                          child: const Icon(
+                                            Icons.note,
+                                            size: 20,
+                                            color: Colors.white,
+                                          ),
+                                        ),
+                                      ),
+                                  ],
+                                ),
                               ),
-                            ),
-                          );
-                        },
+                            );
+                          },
+                        ),
                       ),
-                    ),
-                    if (_todaysQuote != null)
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                          child: AnimatedOpacity(
-                            opacity: 1.0,
-                            duration: const Duration(seconds: 2),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.white.withOpacity(0.1)
-                                    : Colors.black.withOpacity(0.05),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _todaysQuote!,
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontStyle: FontStyle.italic,
+                      if (_todaysQuote != null)
+                        Center(
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
+                            child: AnimatedOpacity(
+                              opacity: 1.0,
+                              duration: const Duration(seconds: 2),
+                              child: Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
                                   color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white70
-                                      : Colors.black87,
+                                      ? Colors.white.withOpacity(0.1)
+                                      : Colors.black.withOpacity(0.05),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Text(
+                                  _todaysQuote!,
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    fontSize: 16,
+                                    fontStyle: FontStyle.italic,
+                                    color: Theme.of(context).brightness == Brightness.dark
+                                        ? Colors.white70
+                                        : Colors.black87,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
                         ),
-                      ),
-                    Spacer(),
-                  ],
-                );
-              },
+                      const SizedBox(height: 20),
+                    ],
+                  );
+                },
+              ),
             ),
           ),
         ],
       ),
-      floatingActionButton: Column(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton(
-            heroTag: 'life_calc',
-            backgroundColor: Colors.blue,
-            child: const Icon(Icons.calculate),
-            onPressed: _showLifeCalcDialog,
-          ),
-          const SizedBox(height: 12),
-          FloatingActionButton(
-            heroTag: 'jump_today',
-            backgroundColor: Colors.green,
-            child: const Icon(Icons.today),
-            onPressed: () {
-              _pageController.jumpToPage(DateTime.now().month - 1);
-            },
-          ),
-        ],
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            FloatingActionButton(
+              heroTag: 'life_calc',
+              backgroundColor: Colors.blue,
+              child: const Icon(Icons.calculate),
+              onPressed: _showLifeCalcDialog,
+            ),
+            const SizedBox(width: 24),
+            FloatingActionButton(
+              heroTag: 'jump_today',
+              backgroundColor: Colors.green,
+              child: const Icon(Icons.today),
+              onPressed: () {
+                _pageController.jumpToPage(DateTime.now().month - 1);
+              },
+            ),
+          ],
+        ),
       ),
     );
   }
