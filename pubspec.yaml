@@ -1,7 +1,7 @@
 name: everyday_lilly
 description: "Everyday Lilly"
 publish_to: 'none'
-version: 7.0.0+7
+version: 8.0.0+8
 
 environment:
   sdk: ^3.9.2
