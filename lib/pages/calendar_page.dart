@@ -591,15 +591,23 @@ class _CalendarPageState extends State<CalendarPage> {
         children: [
           _buildBackground(isDark),
           Positioned.fill(
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 24),
-              child: PageView.builder(
-                controller: _pageController,
-                itemCount: 12,
-                itemBuilder: (context, monthIndex) {
-                  return _buildMonthView(monthIndex, now);
-                },
-              ),
+            child: Column(
+              children: [
+                // Add a fixed space below AppBar to visually separate controls from calendar grid
+                const SizedBox(height: 50),
+                Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.only(bottom: 24),
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: 12,
+                      itemBuilder: (context, monthIndex) {
+                        return _buildMonthView(monthIndex, now);
+                      },
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -718,7 +726,6 @@ class _CalendarPageState extends State<CalendarPage> {
     );
   }
 
-  /// Builds the month grid view for the given month index and current date.
   Widget _buildMonthView(int monthIndex, DateTime now) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
@@ -726,7 +733,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final weekdayOffset = monthDate.weekday - 1;
     return Column(
       children: [
-        SizedBox(height: MediaQuery.of(context).padding.top + 8),
+        const SizedBox(height: 6),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
           child: Container(

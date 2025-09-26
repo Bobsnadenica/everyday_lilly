@@ -65,7 +65,7 @@ class _FrontPageState extends State<FrontPage> {
                 : const Center(child: CircularProgressIndicator()),
           ),
           Positioned(
-            top: 16,
+            top: 50,
             right: 16,
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -213,7 +213,7 @@ class _Description extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final text = language == 'bg'
-        ? 'Заснемай снимка всеки ден и виж своето развитие.\nВдъхновено от дъщеря ми Лили.\nОбичам те, Лили <3'
+        ? 'Заснемай снимка всеки ден и виж развитието на своята лилия.\nВдъхновено от дъщеря ми Лили.\nОбичам те, Лили <3'
         : 'Capture a photo each day and see your growth journey unfold.\nInspired by my daughter Lilly.\nI love you, Lilly <3';
     return Text(
       text,
