@@ -27,8 +27,8 @@ android {
         applicationId = "com.privileged.everyday_lilly"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 9
-        versionName = "9.0.0"
+        versionCode = 11
+        versionName = "11.0.0"
     }
 
     // Ensure backward compatibility with older plugins
@@ -57,7 +57,6 @@ android {
             )
         }
         debug {
-            signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
             isShrinkResources = false
             isDebuggable = true

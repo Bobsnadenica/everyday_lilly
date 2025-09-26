@@ -142,7 +142,7 @@ class _FrontPageState extends State<FrontPage> {
                     onPressed: () {
                       Navigator.pushAndRemoveUntil(
                         context,
-                        MaterialPageRoute(builder: (_) => const HomePage()),
+                        MaterialPageRoute(builder: (_) => HomePage()),
                         (Route<dynamic> route) => false,
                       );
                     },

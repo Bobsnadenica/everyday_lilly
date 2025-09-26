@@ -44,11 +44,8 @@ class _PhotoGalleryState extends State<PhotoGallery> {
       keys.removeAt(index);
     });
     if (keys.isEmpty) {
-      // Show placeholder instead of popping
-      if (!mounted) return;
-      setState(() {});
+      Navigator.pop(context);
     } else {
-      // Ensure current page index is valid
       final currentPage = _controller.page?.round() ?? 0;
       final newIndex = currentPage >= keys.length ? keys.length - 1 : currentPage;
       _controller.jumpToPage(newIndex);
@@ -90,33 +87,19 @@ class _PhotoGalleryState extends State<PhotoGallery> {
       },
     );
     controller.dispose();
-    if (result != null) {
+    if (result != null && mounted) {
       widget.onNoteChanged(photoKey, result);
-      if (mounted) {
-        setState(() {});
-      }
+      setState(() {});
     }
   }
 
   @override
   Widget build(BuildContext context) {
     if (keys.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Lilly Photos'),
-        ),
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: const [
-              Icon(Icons.photo_size_select_actual_outlined, size: 64, color: Colors.grey),
-              SizedBox(height: 16),
-              Text(
-                'No photos available',
-                style: TextStyle(fontSize: 18, color: Colors.grey),
-              ),
-            ],
-          ),
+      return Center(
+        child: Text(
+          'No photos available',
+          style: TextStyle(fontSize: 18, color: Colors.grey),
         ),
       );
     }
@@ -160,6 +143,7 @@ class _PhotoGalleryState extends State<PhotoGallery> {
           if (photo == null) {
             return const Center(child: Text('Photo missing'));
           }
+          final isDark = Theme.of(context).brightness == Brightness.dark;
           return Stack(
             children: [
               Center(
@@ -185,15 +169,13 @@ class _PhotoGalleryState extends State<PhotoGallery> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark
-                            ? Colors.white70.withOpacity(0.8)
-                            : Colors.black87.withOpacity(0.7),
+                        color: isDark ? Colors.white70.withOpacity(0.8) : Colors.black87.withOpacity(0.7),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         note,
                         style: TextStyle(
-                          color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+                          color: isDark ? Colors.black : Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),

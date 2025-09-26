@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/calendar.dart';
-import 'calendar_page.dart';
+import 'calendar_page/calendar_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  HomePage({super.key});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -92,7 +92,7 @@ class _HomePageState extends State<HomePage> {
     bool updated = false;
     if (!mounted) return;
     for (var name in defaultCalendarNames) {
-      if (!_calendars.any((c) => c.name == name)) {
+      if (!_calendars.any((c) => c.name == name) && !_calendars.any((c) => c.id == defaultCalendars[name]!.id)) {
         _calendars.add(defaultCalendars[name]!);
         updated = true;
       }
@@ -189,7 +189,7 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final id = '${_slugify(result)}_${DateTime.now().millisecondsSinceEpoch}'.toLowerCase();
+      final id = '${_slugify(result)}_${DateTime.now().millisecondsSinceEpoch}';
       final newCalendar = Calendar(id: id, name: result, year: DateTime.now().year);
       if (!mounted) return;
       setState(() {

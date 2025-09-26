@@ -1,7 +1,7 @@
 name: everyday_lilly
 description: "Everyday Lilly"
 publish_to: 'none'
-version: 9.0.0+9
+version: 11.0.0+11
 
 environment:
   sdk: ^3.9.2
@@ -44,3 +44,4 @@ flutter:
     - assets/backgrounds/morning/
     - assets/backgrounds/front_page/
     - assets/quotes/motivational_quotes.txt
+    - assets/rewards/
