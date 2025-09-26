@@ -36,12 +36,23 @@ class _PhotoGalleryState extends State<PhotoGallery> {
   }
 
   void _deletePhoto(int index) {
+    if (index < 0 || index >= keys.length) return;
     final key = keys[index];
     widget.onDelete(key);
+    if (!mounted) return;
     setState(() {
       keys.removeAt(index);
     });
-    if (keys.isEmpty) Navigator.pop(context);
+    if (keys.isEmpty) {
+      // Show placeholder instead of popping
+      if (!mounted) return;
+      setState(() {});
+    } else {
+      // Ensure current page index is valid
+      final currentPage = _controller.page?.round() ?? 0;
+      final newIndex = currentPage >= keys.length ? keys.length - 1 : currentPage;
+      _controller.jumpToPage(newIndex);
+    }
   }
 
   Future<void> _editNoteDialog(String photoKey) async {
@@ -62,25 +73,53 @@ class _PhotoGalleryState extends State<PhotoGallery> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context, null),
+              onPressed: () {
+                Navigator.pop(context, null);
+              },
               child: const Text('Cancel'),
             ),
             TextButton(
-              onPressed: () => Navigator.pop(context, controller.text.trim().isEmpty ? null : controller.text.trim()),
+              onPressed: () {
+                final trimmed = controller.text.trim();
+                Navigator.pop(context, trimmed.isEmpty ? null : trimmed);
+              },
               child: const Text('Save'),
             ),
           ],
         );
       },
     );
+    controller.dispose();
     if (result != null) {
       widget.onNoteChanged(photoKey, result);
-      setState(() {});
+      if (mounted) {
+        setState(() {});
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    if (keys.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Lilly Photos'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: const [
+              Icon(Icons.photo_size_select_actual_outlined, size: 64, color: Colors.grey),
+              SizedBox(height: 16),
+              Text(
+                'No photos available',
+                style: TextStyle(fontSize: 18, color: Colors.grey),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return Scaffold(
       appBar: AppBar(
         title: const Text('Lilly Photos'),
@@ -89,7 +128,9 @@ class _PhotoGalleryState extends State<PhotoGallery> {
             icon: const Icon(Icons.share),
             tooltip: 'Share this photo',
             onPressed: () {
-              final key = keys[_controller.page!.round()];
+              final page = _controller.page;
+              if (page == null) return;
+              final key = keys[page.round()];
               final file = widget.photos[key];
               if (file != null) {
                 Share.shareXFiles([XFile(file.path)]);
@@ -100,7 +141,9 @@ class _PhotoGalleryState extends State<PhotoGallery> {
             icon: const Icon(Icons.delete),
             tooltip: 'Delete this photo',
             onPressed: () {
-              final index = _controller.page!.round();
+              final page = _controller.page;
+              if (page == null) return;
+              final index = page.round();
               _deletePhoto(index);
             },
           ),
@@ -124,9 +167,12 @@ class _PhotoGalleryState extends State<PhotoGallery> {
                   panEnabled: true,
                   minScale: 1.0,
                   maxScale: 4.0,
-                  child: Image.file(
-                    photo,
-                    fit: BoxFit.contain,
+                  child: Hero(
+                    tag: photoKey,
+                    child: Image.file(
+                      photo,
+                      fit: BoxFit.contain,
+                    ),
                   ),
                 ),
               ),
@@ -137,10 +183,12 @@ class _PhotoGalleryState extends State<PhotoGallery> {
                   right: 16,
                   child: Center(
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
-                        borderRadius: BorderRadius.circular(8),
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.white70.withOpacity(0.8)
+                            : Colors.black87.withOpacity(0.7),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
                         note,
@@ -160,7 +208,10 @@ class _PhotoGalleryState extends State<PhotoGallery> {
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          final index = _controller.page!.round();
+          final page = _controller.page;
+          if (page == null) return;
+          final index = page.round();
+          if (index < 0 || index >= keys.length) return;
           final photoKey = keys[index];
           _editNoteDialog(photoKey);
         },

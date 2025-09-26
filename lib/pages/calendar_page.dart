@@ -6,7 +6,6 @@ import 'package:image_picker/image_picker.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/services.dart' show rootBundle;
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
 import 'package:archive/archive_io.dart';
@@ -27,28 +26,28 @@ class CalendarPage extends StatefulWidget {
 class _CalendarPageState extends State<CalendarPage> {
   List<String> _quotes = [];
   String? _todaysQuote;
-  // Returns an asset path for background based on current time of day, picking randomly from variants
   String _getBackgroundForTime() {
     final hour = DateTime.now().hour;
     final random = Random();
-
-    List<String> morning = ['1.jpg', '11.jpg', '111.jpg'];
-    List<String> afternoon = ['2.jpg', '22.jpg', '222.jpg'];
-    List<String> evening = ['3.jpg', '33.jpg', '333.jpg'];
-    List<String> night = ['4.jpg', '44.jpg', '444.jpg'];
+    final List<String> morning = List.generate(12, (i) => 'morning${i + 1}.jpg');
+    final List<String> afternoon = List.generate(12, (i) => 'afternoon${i + 1}.jpg');
+    final List<String> evening = List.generate(12, (i) => 'evening${i + 1}.jpg');
+    final List<String> night = List.generate(12, (i) => 'night${i + 1}.jpg');
 
     if (hour >= 6 && hour < 12) {
-      return 'assets/backgrounds/${morning[random.nextInt(morning.length)]}';
+      return 'assets/backgrounds/morning/${morning[random.nextInt(morning.length)]}';
     } else if (hour >= 12 && hour < 18) {
-      return 'assets/backgrounds/${afternoon[random.nextInt(afternoon.length)]}';
+      return 'assets/backgrounds/afternoon/${afternoon[random.nextInt(afternoon.length)]}';
     } else if (hour >= 18 && hour < 20) {
-      return 'assets/backgrounds/${evening[random.nextInt(evening.length)]}';
+      return 'assets/backgrounds/evening/${evening[random.nextInt(evening.length)]}';
     } else {
-      return 'assets/backgrounds/${night[random.nextInt(night.length)]}';
+      return 'assets/backgrounds/night/${night[random.nextInt(night.length)]}';
     }
   }
   final ImagePicker _picker = ImagePicker();
   late final PageController _pageController;
+
+  late String _backgroundPath;
 
   final Map<String, File> _photos = {};
   final Map<String, String> _notes = {};
@@ -59,9 +58,20 @@ class _CalendarPageState extends State<CalendarPage> {
     super.initState();
     _pageController = PageController(initialPage: DateTime.now().month - 1);
     _currentYear = DateTime.now().year;
+    _backgroundPath = _getBackgroundForTime();
+    _ensureCalendarDirectory();
     _loadPhotos();
     _loadQuotes();
     scheduleDailyReminder();
+  }
+
+  Future<void> _ensureCalendarDirectory() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final safeId = widget.calendar.id.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
+    final calendarDir = Directory('${dir.path}/calendars/$safeId');
+    if (!await calendarDir.exists()) {
+      await calendarDir.create(recursive: true);
+    }
   }
 
   Future<void> _loadQuotes() async {
@@ -84,9 +94,10 @@ class _CalendarPageState extends State<CalendarPage> {
   void didUpdateWidget(covariant CalendarPage oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.calendar.id != widget.calendar.id) {
-      _photos.clear();
-      _notes.clear();
-      setState(() {}); // refresh UI when switching
+      setState(() {
+        _photos.clear();
+        _notes.clear();
+      });
       _loadPhotos();
     }
   }
@@ -119,7 +130,6 @@ class _CalendarPageState extends State<CalendarPage> {
           loadedPhotos[name] = file;
         }
       }
-      // Load notes from notes.json
       final notesFile = await _getNotesFile();
       if (await notesFile.exists()) {
         try {
@@ -127,12 +137,8 @@ class _CalendarPageState extends State<CalendarPage> {
           final Map<String, dynamic> json = jsonDecode(notesContent);
           _notes.addAll(json.map((key, value) => MapEntry(key, value.toString())));
         } catch (_) {
-          // Corrupt notes.json — reset to empty to avoid crashing and re-save next write
           _notes.clear();
         }
-      }
-      if (loadedPhotos.isEmpty) {
-        debugPrint('No photos found for calendar ${widget.calendar.name}');
       }
       if (!mounted) return;
       setState(() {
@@ -155,17 +161,18 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> _savePhoto(DateTime date, File file) async {
     try {
       final calendarDir = await _getCalendarDirectory();
-      final fileName = DateFormat('yyyy-MM-dd').format(date) + '.jpg';
+      final key = DateFormat('yyyy-MM-dd').format(date);
+      final fileName = '$key.jpg';
       final newFile = File('${calendarDir.path}/$fileName');
 
-      if (_photos.containsKey(fileName.split('.').first)) {
-        await _photos[fileName.split('.').first]!.delete();
+      if (_photos.containsKey(key)) {
+        await _photos[key]!.delete();
       }
 
       final savedImage = await file.copy(newFile.path);
 
       setState(() {
-        _photos[fileName.split('.').first] = savedImage;
+        _photos[key] = savedImage;
       });
     } catch (e) {
       debugPrint('Error saving photo: $e');
@@ -220,205 +227,6 @@ class _CalendarPageState extends State<CalendarPage> {
     }
   }
 
-  void _showLifeCalcDialog() {
-  String selectedCategory = 'Human';
-  String? selectedSubType;
-  final yearController = TextEditingController();
-  final monthController = TextEditingController();
-  final dayController = TextEditingController();
-
-  final Map<String, Map<String, int>> lifeData = {
-    'Human': {
-      'Average Human': 80,
-    },
-    'Animal': {
-      'Dog (Small Breed)': 15,
-      'Dog (Large Breed)': 10,
-      'Cat': 16,
-      'Horse': 30,
-      'Elephant': 70,
-      'Parrot': 60,
-      'Goldfish': 10,
-      'Turtle': 100,
-    },
-    'Plant': {
-      'Flower Plant': 3,
-      'Shrub': 10,
-      'Bamboo': 20,
-      'Fruit Tree': 25,
-      'Oak Tree': 300,
-      'Pine Tree': 500,
-      'Cherry Blossom Tree': 40,
-      'Cactus': 150,
-    },
-    'Structure': {
-      'Building': 100,
-      'Bridge': 75,
-      'Car': 15,
-      'Road': 50,
-      'Ship': 30,
-      'Airplane': 30,
-    },
-    'Nature': {
-      'River': 1000,
-      'Mountain': 1000000,
-      'Planet': 4500000000,
-      'Star': 10000000000,
-      'Galaxy': 100000000000,
-    },
-  };
-
-  showDialog(
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (context, setStateDialog) {
-          return AlertDialog(
-            title: const Text('Life Expectancy Calculator'),
-            content: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Category selection
-                  DropdownButton<String>(
-                    value: selectedCategory,
-                    onChanged: (value) {
-                      if (value != null) {
-                        setStateDialog(() {
-                          selectedCategory = value;
-                          selectedSubType = null;
-                        });
-                      }
-                    },
-                    items: lifeData.keys
-                        .map((cat) => DropdownMenuItem(value: cat, child: Text(cat)))
-                        .toList(),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Subtype selection
-                  if (lifeData[selectedCategory]!.keys.length > 1)
-                    DropdownButton<String>(
-                      value: selectedSubType,
-                      hint: const Text('Select type'),
-                      onChanged: (value) {
-                        if (value != null) {
-                          setStateDialog(() {
-                            selectedSubType = value;
-                          });
-                        }
-                      },
-                      items: lifeData[selectedCategory]!.keys
-                          .map((sub) => DropdownMenuItem(value: sub, child: Text(sub)))
-                          .toList(),
-                    ),
-
-                  const SizedBox(height: 12),
-
-                  // Age input fields
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: yearController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Years'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: monthController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Months'),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: TextField(
-                          controller: dayController,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(labelText: 'Days'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context, rootNavigator: true).pop(),
-                child: const Text('Close'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  final years = int.tryParse(yearController.text) ?? 0;
-                  final months = int.tryParse(monthController.text) ?? 0;
-                  final days = int.tryParse(dayController.text) ?? 0;
-
-                  if (months < 0 || months > 11 || days < 0 || days > 30) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Months must be 0-11 and days must be 0-30')),
-                    );
-                    return;
-                  }
-
-                  final totalAge = years + (months / 12.0) + (days / 365.0);
-
-                  final subMap = lifeData[selectedCategory]!;
-                  final typeKey = selectedSubType ?? subMap.keys.first;
-                  final avgLife = subMap[typeKey]!;
-
-                  final remaining = (avgLife - totalAge).clamp(0, avgLife);
-                  final percent = ((remaining / avgLife) * 100).toStringAsFixed(1);
-
-                  Navigator.of(context, rootNavigator: true).pop();
-
-                  showDialog(
-                    context: context,
-                    builder: (_) {
-                      return AlertDialog(
-                        title: Text('$typeKey Life Remaining'),
-                        content: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            CircularProgressIndicator(
-                              value: remaining / avgLife,
-                              backgroundColor: Colors.grey.shade300,
-                              color: Colors.green,
-                              strokeWidth: 8,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              '${remaining.toStringAsFixed(2)} years remaining ($percent% left)',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () {
-                              if (Navigator.of(context, rootNavigator: true).canPop()) {
-                                Navigator.of(context, rootNavigator: true).pop();
-                              }
-                            },
-                            child: const Text('Close'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-                child: const Text('Calculate'),
-              ),
-            ],
-          );
-        },
-      );
-    },
-  );
-}
 
   void _openDayActions(DateTime date) {
     if (date.isAfter(DateTime.now())) {
@@ -706,7 +514,6 @@ class _CalendarPageState extends State<CalendarPage> {
       }
       await tempFramesDir.create(recursive: true);
 
-      // Copy photos into temp_frames as frame_0001.jpg, frame_0002.jpg, ... and collect their paths
       final framePaths = <String>[];
       int i = 1;
       for (final key in filteredKeys) {
@@ -717,17 +524,10 @@ class _CalendarPageState extends State<CalendarPage> {
         framePaths.add(dst.path);
         i++;
       }
-      print('About to call native encoder with ${framePaths.length} frames');
-      // Debug print the generated frame paths
-      print('Generated frame paths:');
-      for (final path in framePaths) {
-        print(path);
-      }
       const channel = MethodChannel('everyday_lilly/timelapse');
       final tempDir = await getTemporaryDirectory();
       final outputMp4 = '${tempDir.path}/timelapse.mp4';
 
-      // Show loading dialog
       showDialog(
         context: context,
         barrierDismissible: false,
@@ -756,8 +556,8 @@ class _CalendarPageState extends State<CalendarPage> {
       } catch (e) {
         resultPath = null;
       }
-      // Dismiss loading dialog
       Navigator.of(context, rootNavigator: true).pop();
+      if (!mounted) return;
 
       if (resultPath != null) {
         await Share.shareXFiles(
@@ -782,353 +582,339 @@ class _CalendarPageState extends State<CalendarPage> {
   @override
   Widget build(BuildContext context) {
     final now = DateTime.now();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const SizedBox.shrink(),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.home),
-            tooltip: 'Go to Front Page',
-            onPressed: () {
-              Navigator.of(context).pushAndRemoveUntil(
-                MaterialPageRoute(builder: (context) => const FrontPage()),
-                (Route<dynamic> route) => false,
-              );
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.arrow_back),
-            onPressed: () {
-              setState(() {
-                _currentYear--;
-              });
-            },
-          ),
-          IconButton(
-            icon: Icon(Icons.arrow_forward),
-            onPressed: () {
-              setState(() {
-                _currentYear++;
-              });
-            },
-          ),
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'reminder':
-                  _pickReminderTime();
-                  break;
-                case 'timelapse':
-                  _exportTimeLapse();
-                  break;
-                case 'backup':
-                  _exportBackupZip();
-                  break;
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'reminder',
-                child: Row(
-                  children: const [
-                    Icon(Icons.access_time, size: 20),
-                    SizedBox(width: 8),
-                    Text('Reminder'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'timelapse',
-                child: Row(
-                  children: const [
-                    Icon(Icons.movie, size: 20),
-                    SizedBox(width: 8),
-                    Text('Export Timelapse'),
-                  ],
-                ),
-              ),
-              PopupMenuItem(
-                value: 'backup',
-                child: Row(
-                  children: const [
-                    Icon(Icons.backup, size: 20),
-                    SizedBox(width: 8),
-                    Text('Backup'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
+      appBar: _buildAppBar(),
       body: Stack(
         children: [
-          // Background image
-          Positioned.fill(
-            child: Image.asset(
-              _getBackgroundForTime(),
-              fit: BoxFit.cover,
-            ),
-          ),
-          // Overlay gradient for readability
-          Positioned.fill(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: Theme.of(context).brightness == Brightness.dark
-                      ? [Colors.black.withOpacity(0.55), Colors.black.withOpacity(0.15)]
-                      : [Colors.black.withOpacity(0.35), Colors.transparent],
-                ),
-              ),
-            ),
-          ),
-          // Content
+          _buildBackground(isDark),
           Positioned.fill(
             child: Padding(
-              padding: const EdgeInsets.only(bottom: 100), // to prevent FAB overlap
+              padding: const EdgeInsets.only(bottom: 24),
               child: PageView.builder(
                 controller: _pageController,
                 itemCount: 12,
                 itemBuilder: (context, monthIndex) {
-                  final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
-                  final daysInMonth = DateUtils.getDaysInMonth(_currentYear, monthIndex + 1);
-                  final weekdayOffset = monthDate.weekday - 1;
-
-                  return Column(
-                    children: [
-                      SizedBox(height: MediaQuery.of(context).padding.top + 8),
-                      // Month header with pill background
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).brightness == Brightness.dark
-                                ? Colors.black.withOpacity(0.5)
-                                : Colors.white.withOpacity(0.55),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Text(
-                            DateFormat('MMMM yyyy').format(monthDate),
-                            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-                      // Weekday labels
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: const [
-                            _WeekdayLabel('Mon'),
-                            _WeekdayLabel('Tue'),
-                            _WeekdayLabel('Wed'),
-                            _WeekdayLabel('Thu'),
-                            _WeekdayLabel('Fri'),
-                            _WeekdayLabel('Sat'),
-                            _WeekdayLabel('Sun'),
-                          ],
-                        ),
-                      ),
-                      Expanded(
-                        child: GridView.builder(
-                          padding: const EdgeInsets.all(8),
-                          itemCount: daysInMonth + weekdayOffset,
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 7,
-                            crossAxisSpacing: 6,
-                            mainAxisSpacing: 6,
-                            childAspectRatio: 1.0,
-                          ),
-                          itemBuilder: (context, index) {
-                            if (index < weekdayOffset) return const SizedBox.shrink();
-                            final day = index - weekdayOffset + 1;
-                            final date = DateTime(_currentYear, monthIndex + 1, day);
-                            final key = DateFormat('yyyy-MM-dd').format(date);
-                            final photo = _photos[key];
-                            final hasNote = _notes.containsKey(key);
-                            final isFuture = date.isAfter(DateTime.now());
-                            final now = DateTime.now();
-                            final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
-
-                            return GestureDetector(
-                              onTap: () {
-                                if (isFuture) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('You cannot add a photo for a future date.')),
-                                  );
-                                  return;
-                                }
-                                _openDayActions(date);
-                              },
-                              onLongPress: () {
-                                if (!isFuture) _addOrEditNote(date);
-                              },
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: photo != null
-                                      ? Colors.transparent
-                                      : (isFuture
-                                          ? (Theme.of(context).brightness == Brightness.dark
-                                              ? Colors.red.withOpacity(0.2)
-                                              : Colors.red.withOpacity(0.3))
-                                          : (Theme.of(context).brightness == Brightness.dark
-                                              ? Colors.white.withOpacity(0.08)
-                                              : Colors.white.withOpacity(0.85))),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.18),
-                                      blurRadius: 6,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                  border: isToday
-                                      ? Border.all(
-                                          color: Theme.of(context).colorScheme.secondary,
-                                          width: 2,
-                                        )
-                                      : null,
-                                ),
-                                child: Stack(
-                                  children: [
-                                    if (photo != null)
-                                      Positioned.fill(
-                                        child: ClipOval(
-                                          child: Image.file(
-                                            photo,
-                                            fit: BoxFit.cover,
-                                            cacheWidth: 300,
-                                            cacheHeight: 300,
-                                          ),
-                                        ),
-                                      ),
-                                    Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Padding(
-                                        padding: const EdgeInsets.all(6),
-                                        child: Text(
-                                          '$day',
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 16,
-                                            color: photo != null
-                                                ? Colors.white
-                                                : (Theme.of(context).brightness == Brightness.dark
-                                                    ? Colors.white
-                                                    : Colors.black87),
-                                            shadows: photo != null
-                                                ? [
-                                                    Shadow(
-                                                      blurRadius: 4,
-                                                      color: Colors.black.withOpacity(0.7),
-                                                      offset: const Offset(1, 1),
-                                                    ),
-                                                  ]
-                                                : null,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (hasNote)
-                                      Align(
-                                        alignment: Alignment.bottomRight,
-                                        child: Container(
-                                          margin: const EdgeInsets.all(4),
-                                          decoration: BoxDecoration(
-                                            color: Colors.black.withOpacity(0.5),
-                                            shape: BoxShape.circle,
-                                            boxShadow: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(0.3),
-                                                blurRadius: 3,
-                                                offset: const Offset(1, 1),
-                                              ),
-                                            ],
-                                          ),
-                                          padding: const EdgeInsets.all(2),
-                                          child: const Icon(
-                                            Icons.note,
-                                            size: 20,
-                                            color: Colors.white,
-                                          ),
-                                        ),
-                                      ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                      if (_todaysQuote != null)
-                        Center(
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                            child: AnimatedOpacity(
-                              opacity: 1.0,
-                              duration: const Duration(seconds: 2),
-                              child: Container(
-                                padding: const EdgeInsets.all(16),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.white.withOpacity(0.1)
-                                      : Colors.black.withOpacity(0.05),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: Text(
-                                  _todaysQuote!,
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontStyle: FontStyle.italic,
-                                    color: Theme.of(context).brightness == Brightness.dark
-                                        ? Colors.white70
-                                        : Colors.black87,
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(height: 20),
-                    ],
-                  );
+                  return _buildMonthView(monthIndex, now);
                 },
               ),
             ),
           ),
         ],
       ),
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 16),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FloatingActionButton(
-              heroTag: 'life_calc',
-              backgroundColor: Colors.blue,
-              child: const Icon(Icons.calculate),
-              onPressed: _showLifeCalcDialog,
+    );
+  }
+
+  /// Builds the background layers for the calendar page.
+  Widget _buildBackground(bool isDark) {
+    return Stack(
+      children: [
+        Positioned.fill(
+          child: Image.asset(
+            _backgroundPath,
+            fit: BoxFit.cover,
+          ),
+        ),
+        Positioned.fill(
+          child: Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: isDark
+                    ? [Colors.black.withOpacity(0.55), Colors.black.withOpacity(0.15)]
+                    : [Colors.black.withOpacity(0.35), Colors.transparent],
+              ),
             ),
-            const SizedBox(width: 24),
-            FloatingActionButton(
-              heroTag: 'jump_today',
-              backgroundColor: Colors.green,
-              child: const Icon(Icons.today),
-              onPressed: () {
-                _pageController.jumpToPage(DateTime.now().month - 1);
-              },
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Builds the AppBar for the calendar page.
+  AppBar _buildAppBar() {
+    return AppBar(
+      title: const SizedBox.shrink(),
+      backgroundColor: Colors.transparent,
+      elevation: 0,
+      actions: [
+        IconButton(
+          icon: const Icon(Icons.home),
+          tooltip: 'Go to Front Page',
+          onPressed: () {
+            Navigator.of(context).pushAndRemoveUntil(
+              MaterialPageRoute(builder: (context) => const FrontPage()),
+              (Route<dynamic> route) => false,
+            );
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            setState(() {
+              _currentYear--;
+            });
+          },
+        ),
+        IconButton(
+          icon: const Icon(Icons.arrow_forward),
+          onPressed: () {
+            setState(() {
+              _currentYear++;
+            });
+          },
+        ),
+        PopupMenuButton<String>(
+          onSelected: (value) {
+            switch (value) {
+              case 'reminder':
+                _pickReminderTime();
+                break;
+              case 'timelapse':
+                _exportTimeLapse();
+                break;
+              case 'backup':
+                _exportBackupZip();
+                break;
+            }
+          },
+          itemBuilder: (context) => [
+            PopupMenuItem(
+              value: 'reminder',
+              child: Row(
+                children: const [
+                  Icon(Icons.access_time, size: 20),
+                  SizedBox(width: 8),
+                  Text('Reminder'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'timelapse',
+              child: Row(
+                children: const [
+                  Icon(Icons.movie, size: 20),
+                  SizedBox(width: 8),
+                  Text('Export Timelapse'),
+                ],
+              ),
+            ),
+            PopupMenuItem(
+              value: 'backup',
+              child: Row(
+                children: const [
+                  Icon(Icons.backup, size: 20),
+                  SizedBox(width: 8),
+                  Text('Backup'),
+                ],
+              ),
             ),
           ],
         ),
-      ),
+      ],
+    );
+  }
+
+  /// Builds the month grid view for the given month index and current date.
+  Widget _buildMonthView(int monthIndex, DateTime now) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final monthDate = DateTime(_currentYear, monthIndex + 1, 1);
+    final daysInMonth = DateUtils.getDaysInMonth(_currentYear, monthIndex + 1);
+    final weekdayOffset = monthDate.weekday - 1;
+    return Column(
+      children: [
+        SizedBox(height: MediaQuery.of(context).padding.top + 8),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: Theme.of(context).brightness == Brightness.dark
+                  ? Colors.black.withOpacity(0.5)
+                  : Colors.white.withOpacity(0.55),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Text(
+              DateFormat('MMMM yyyy').format(monthDate),
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 2),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: const [
+              _WeekdayLabel('Mon'),
+              _WeekdayLabel('Tue'),
+              _WeekdayLabel('Wed'),
+              _WeekdayLabel('Thu'),
+              _WeekdayLabel('Fri'),
+              _WeekdayLabel('Sat'),
+              _WeekdayLabel('Sun'),
+            ],
+          ),
+        ),
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(8),
+            itemCount: daysInMonth + weekdayOffset,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              crossAxisSpacing: 6,
+              mainAxisSpacing: 6,
+              childAspectRatio: 1.0,
+            ),
+            itemBuilder: (context, index) {
+              if (index < weekdayOffset) return const SizedBox.shrink();
+              final day = index - weekdayOffset + 1;
+              final date = DateTime(_currentYear, monthIndex + 1, day);
+              final key = DateFormat('yyyy-MM-dd').format(date);
+              final photo = _photos[key];
+              final hasNote = _notes.containsKey(key);
+              final isFuture = date.isAfter(now);
+              final isToday = date.year == now.year && date.month == now.month && date.day == now.day;
+              return GestureDetector(
+                onTap: () {
+                  if (isFuture) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('You cannot add a photo for a future date.')),
+                    );
+                    return;
+                  }
+                  _openDayActions(date);
+                },
+                onLongPress: () {
+                  if (!isFuture) _addOrEditNote(date);
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: photo != null
+                        ? Colors.transparent
+                        : (isFuture
+                            ? (isDark
+                                ? Colors.red.withOpacity(0.2)
+                                : Colors.red.withOpacity(0.3))
+                            : (isDark
+                                ? Colors.white.withOpacity(0.08)
+                                : Colors.white.withOpacity(0.85))),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.18),
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                    border: isToday
+                        ? Border.all(
+                            color: Theme.of(context).colorScheme.secondary,
+                            width: 2,
+                          )
+                        : null,
+                  ),
+                  child: Stack(
+                    children: [
+                      if (photo != null)
+                        Positioned.fill(
+                          child: ClipOval(
+                            child: Image.file(
+                              photo,
+                              fit: BoxFit.cover,
+                              cacheWidth: 300,
+                              cacheHeight: 300,
+                            ),
+                          ),
+                        ),
+                      Align(
+                        alignment: Alignment.topLeft,
+                        child: Padding(
+                          padding: const EdgeInsets.all(6),
+                          child: Text(
+                            '$day',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                              color: photo != null
+                                  ? Colors.white
+                                  : (isDark ? Colors.white : Colors.black87),
+                              shadows: photo != null
+                                  ? [
+                                      Shadow(
+                                        blurRadius: 4,
+                                        color: Colors.black.withOpacity(0.7),
+                                        offset: const Offset(1, 1),
+                                      ),
+                                    ]
+                                  : null,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (hasNote)
+                        Align(
+                          alignment: Alignment.bottomRight,
+                          child: Container(
+                            margin: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.5),
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withOpacity(0.3),
+                                  blurRadius: 3,
+                                  offset: const Offset(1, 1),
+                                ),
+                              ],
+                            ),
+                            padding: const EdgeInsets.all(2),
+                            child: const Icon(
+                              Icons.note,
+                              size: 20,
+                              color: Colors.white,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        if (_todaysQuote != null)
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: AnimatedOpacity(
+                opacity: 1.0,
+                duration: const Duration(seconds: 2),
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.black.withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _todaysQuote!,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontStyle: FontStyle.italic,
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        const SizedBox(height: 20),
+      ],
     );
   }
 }

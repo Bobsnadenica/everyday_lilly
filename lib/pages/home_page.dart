@@ -18,71 +18,137 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
-    _loadCalendars();
+    _loadCalendars().then((_) async {
+      if (_calendars.isEmpty) {
+        await _setDefaultCalendars();
+      } else {
+        await _ensureDefaultTriplet();
+      }
+    });
   }
 
   Future<void> _loadCalendars() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? jsonString = prefs.getString('calendars');
-    if (jsonString != null) {
-      try {
-        final List<dynamic> list = json.decode(jsonString);
-        final calendars = list.map((item) => Calendar.fromJson(item)).toList();
-        final savedId = await _loadSelectedCalendarId();
-        setState(() {
-          _calendars = calendars;
-          if (savedId != null) {
-            final match = _calendars.where((c) => c.id == savedId).toList();
-            if (match.isNotEmpty) {
-              _selectedCalendar = match.first;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String? jsonString = prefs.getString('calendars');
+      if (jsonString != null) {
+        try {
+          final List<dynamic> list = json.decode(jsonString);
+          final calendars = list.map((item) => Calendar.fromJson(item)).toList();
+          final savedId = await _loadSelectedCalendarId();
+          if (!mounted) return;
+          setState(() {
+            _calendars = calendars;
+            if (savedId != null) {
+              final match = _calendars.where((c) => c.id == savedId).toList();
+              if (match.isNotEmpty) {
+                _selectedCalendar = match.first;
+              } else {
+                _selectedCalendar = _calendars.isNotEmpty
+                    ? _calendars.first
+                    : Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025);
+              }
             } else {
               _selectedCalendar = _calendars.isNotEmpty
                   ? _calendars.first
                   : Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025);
             }
-          } else {
-            _selectedCalendar = _calendars.isNotEmpty
-                ? _calendars.first
-                : Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025);
-          }
-        });
-      } catch (_) {
-        _setDefaultCalendars();
+          });
+          await _ensureDefaultTriplet();
+        } catch (_) {
+          await _setDefaultCalendars();
+        }
+      } else {
+        await _setDefaultCalendars();
       }
-    } else {
-      _setDefaultCalendars();
+    } catch (e) {
+      _showErrorSnackBar('Failed to load calendars.');
+      await _setDefaultCalendars();
     }
   }
 
-  void _setDefaultCalendars() {
+  Future<void> _setDefaultCalendars() async {
+    final defaultCalendars = [
+      Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025),
+      Calendar(id: 'everyday_dandelion', name: 'Everyday Dandelion', year: 2025),
+      Calendar(id: 'everyday_me', name: 'Everyday Me', year: 2025),
+    ];
+    if (!mounted) return;
     setState(() {
-      _calendars = [
-        Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025),
-        Calendar(id: 'everyday_dandelion', name: 'Everyday Dandelion', year: 2025),
-      ];
+      _calendars = defaultCalendars;
       _selectedCalendar = _calendars.first;
     });
-    _saveCalendars();
-    _saveSelectedCalendarId(_selectedCalendar!.id);
+    await _saveCalendars();
+    await _saveSelectedCalendarId(_selectedCalendar!.id);
+  }
+
+  Future<void> _ensureDefaultTriplet() async {
+    final defaultCalendarNames = {'Everyday Lilly', 'Everyday Dandelion', 'Everyday Me'};
+    final defaultCalendars = {
+      'Everyday Lilly': Calendar(id: 'everyday_lilly', name: 'Everyday Lilly', year: 2025),
+      'Everyday Dandelion': Calendar(id: 'everyday_dandelion', name: 'Everyday Dandelion', year: 2025),
+      'Everyday Me': Calendar(id: 'everyday_me', name: 'Everyday Me', year: 2025),
+    };
+    bool updated = false;
+    if (!mounted) return;
+    for (var name in defaultCalendarNames) {
+      if (!_calendars.any((c) => c.name == name)) {
+        _calendars.add(defaultCalendars[name]!);
+        updated = true;
+      }
+    }
+    if (updated) {
+      setState(() {
+        _calendars = List.from(_calendars);
+        if (_selectedCalendar == null || !_calendars.contains(_selectedCalendar)) {
+          _selectedCalendar = _calendars.first;
+        }
+      });
+      await _saveCalendars();
+      await _saveSelectedCalendarId(_selectedCalendar!.id);
+    }
   }
 
   Future<void> _saveCalendars() async {
-    final prefs = await SharedPreferences.getInstance();
-    final data = _calendars.map((c) => c.toJson()).toList();
-    await prefs.setString('calendars', json.encode(data));
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final data = _calendars.map((c) => c.toJson()).toList();
+      await prefs.setString('calendars', json.encode(data));
+    } catch (e) {
+      _showErrorSnackBar('Failed to save calendars.');
+    }
   }
 
   Future<void> _saveSelectedCalendarId(String id) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('selected_calendar_id', id);
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('selected_calendar_id', id);
+    } catch (e) {
+      _showErrorSnackBar('Failed to save selected calendar.');
+    }
+  }
+
+  Future<void> _removeSelectedCalendarId() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('selected_calendar_id');
+    } catch (e) {
+      _showErrorSnackBar('Failed to remove selected calendar.');
+    }
   }
 
   Future<String?> _loadSelectedCalendarId() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('selected_calendar_id');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString('selected_calendar_id');
+    } catch (e) {
+      _showErrorSnackBar('Failed to load selected calendar.');
+      return null;
+    }
   }
 
   void _selectCalendar(Calendar calendar) {
+    if (!mounted) return;
     setState(() {
       _selectedCalendar = calendar;
     });
@@ -123,8 +189,9 @@ class _HomePageState extends State<HomePage> {
     );
 
     if (result != null && result.isNotEmpty) {
-      final id = '${_slugify(result)}_${DateTime.now().millisecondsSinceEpoch}';
+      final id = '${_slugify(result)}_${DateTime.now().millisecondsSinceEpoch}'.toLowerCase();
       final newCalendar = Calendar(id: id, name: result, year: DateTime.now().year);
+      if (!mounted) return;
       setState(() {
         _calendars.add(newCalendar);
         _selectedCalendar = newCalendar;
@@ -134,6 +201,57 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _renameCalendar(Calendar calendar) async {
+    final nameController = TextEditingController(text: calendar.name);
+    final result = await showDialog<String>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rename Calendar'),
+        content: TextField(
+          controller: nameController,
+          decoration: const InputDecoration(labelText: 'Calendar Name'),
+          autofocus: true,
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final newName = nameController.text.trim();
+              if (newName.isNotEmpty) {
+                Navigator.of(context).pop(newName);
+              }
+            },
+            child: const Text('Rename'),
+          ),
+        ],
+      ),
+    );
+
+    if (result != null && result.isNotEmpty) {
+      if (!mounted) return;
+      setState(() {
+        final index = _calendars.indexWhere((c) => c.id == calendar.id);
+        if (index != -1) {
+          _calendars[index] = Calendar(id: calendar.id, name: result, year: calendar.year);
+          if (_selectedCalendar?.id == calendar.id) {
+            _selectedCalendar = _calendars[index];
+          }
+        }
+      });
+      await _saveCalendars();
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message)),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_selectedCalendar == null) {
@@ -141,6 +259,7 @@ class _HomePageState extends State<HomePage> {
         body: Center(child: CircularProgressIndicator()),
       );
     }
+    final defaultCalendarNames = {'Everyday Lilly', 'Everyday Dandelion', 'Everyday Me'};
     return Scaffold(
       backgroundColor: const Color(0xFFFDF9F3),
       appBar: AppBar(
@@ -170,66 +289,87 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
             ),
+            const Divider(height: 1),
             Expanded(
               child: ListView.builder(
                 itemCount: _calendars.length,
                 itemBuilder: (context, index) {
                   final calendar = _calendars[index];
-                  return ListTile(
-                    leading: const Icon(Icons.calendar_month, color: Colors.green),
-                    title: Text(
-                      calendar.name,
-                      style: TextStyle(
-                        fontWeight: calendar.id == _selectedCalendar!.id
-                            ? FontWeight.bold
-                            : FontWeight.normal,
-                        color: calendar.id == _selectedCalendar!.id
-                            ? Colors.green.shade800
-                            : Colors.black87,
+                  final isDefault = defaultCalendarNames.contains(calendar.name);
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8.0),
+                    child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      leading: const Icon(Icons.calendar_month, color: Colors.green),
+                      title: Text(
+                        calendar.name,
+                        style: TextStyle(
+                          fontWeight: calendar.id == _selectedCalendar!.id
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: calendar.id == _selectedCalendar!.id
+                              ? Colors.green.shade800
+                              : Colors.black87,
+                        ),
                       ),
-                    ),
-                    selected: calendar.id == _selectedCalendar!.id,
-                    onTap: () => _selectCalendar(calendar),
-                    trailing: (calendar.name == 'Everyday Lilly' || calendar.name == 'Everyday Dandelion')
-                        ? null
-                        : IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () async {
-                              final confirm = await showDialog<bool>(
-                                context: context,
-                                builder: (_) => AlertDialog(
-                                  title: Text('Delete Calendar'),
-                                  content: Text('Are you sure you want to delete ${calendar.name}?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, false),
-                                      child: const Text('Cancel'),
-                                    ),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(context, true),
-                                      child: const Text('Delete'),
-                                    ),
-                                  ],
+                      selected: calendar.id == _selectedCalendar!.id,
+                      onTap: () => _selectCalendar(calendar),
+                      trailing: isDefault
+                          ? null
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.edit, color: Colors.blue),
+                                  onPressed: () async {
+                                    await _renameCalendar(calendar);
+                                  },
                                 ),
-                              );
-                              if (confirm == true) {
-                                setState(() {
-                                  _calendars.remove(calendar);
-                                  if (_selectedCalendar == calendar) {
-                                    _selectedCalendar = _calendars.isNotEmpty ? _calendars.first : null;
-                                  }
-                                });
-                                await _saveCalendars();
-                                if (_selectedCalendar != null) {
-                                  await _saveSelectedCalendarId(_selectedCalendar!.id);
-                                }
-                              }
-                            },
-                          ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete, color: Colors.red),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (_) => AlertDialog(
+                                        title: Text('Delete Calendar'),
+                                        content: Text('Are you sure you want to delete ${calendar.name}?'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context, true),
+                                            child: const Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                    if (confirm == true) {
+                                      if (!mounted) return;
+                                      setState(() {
+                                        _calendars.remove(calendar);
+                                        if (_selectedCalendar == calendar) {
+                                          _selectedCalendar = _calendars.isNotEmpty ? _calendars.first : null;
+                                        }
+                                      });
+                                      await _saveCalendars();
+                                      if (_calendars.isEmpty) {
+                                        await _removeSelectedCalendarId();
+                                      } else if (_selectedCalendar != null) {
+                                        await _saveSelectedCalendarId(_selectedCalendar!.id);
+                                      }
+                                    }
+                                  },
+                                ),
+                              ],
+                            ),
+                    ),
                   );
                 },
               ),
             ),
+            const Divider(height: 1),
             Padding(
               padding: const EdgeInsets.all(12.0),
               child: ElevatedButton.icon(

@@ -1,7 +1,7 @@
 name: everyday_lilly
 description: "Everyday Lilly"
 publish_to: 'none'
-version: 8.0.0+8
+version: 9.0.0+9
 
 environment:
   sdk: ^3.9.2
@@ -9,6 +9,7 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  video_player: ^2.9.1
   cupertino_icons: ^1.0.8
   image_picker: ^1.2.0
   path_provider: ^2.1.1
@@ -18,7 +19,7 @@ dependencies:
   share_plus: ^7.2.2
   archive: ^3.6.1
   shared_preferences: ^2.3.2
-  
+  flutter_timezone: ^5.0.0
 
 dev_dependencies:
   flutter_test:
@@ -37,4 +38,9 @@ flutter:
     - assets/icon.png
     - assets/lily_background.jpg
     - assets/backgrounds/
+    - assets/backgrounds/night/
+    - assets/backgrounds/evening/
+    - assets/backgrounds/afternoon/
+    - assets/backgrounds/morning/
+    - assets/backgrounds/front_page/
     - assets/quotes/motivational_quotes.txt
