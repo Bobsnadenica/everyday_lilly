@@ -27,8 +27,9 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
   Widget build(BuildContext context) {
     return AppBar(
       title: const SizedBox.shrink(),
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.black54,
       elevation: 0,
+      iconTheme: const IconThemeData(color: Colors.white),
       actions: [
         IconButton(icon: const Icon(Icons.home), onPressed: onHome),
         IconButton(
@@ -39,6 +40,7 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
         IconButton(icon: const Icon(Icons.arrow_back), onPressed: onBackYear),
         IconButton(icon: const Icon(Icons.arrow_forward), onPressed: onForwardYear),
         PopupMenuButton<String>(
+          color: Colors.black87,
           onSelected: (v) {
             switch (v) {
               case 'reminder':
@@ -55,15 +57,33 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
           itemBuilder: (context) => const [
             PopupMenuItem(
               value: 'reminder',
-              child: Row(children: [Icon(Icons.access_time, size: 20), SizedBox(width: 8), Text('Reminder')]),
+              child: Row(
+                children: [
+                  Icon(Icons.access_time, size: 20, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Reminder', style: TextStyle(color: Colors.white)),
+                ],
+              ),
             ),
             PopupMenuItem(
               value: 'timelapse',
-              child: Row(children: [Icon(Icons.movie, size: 20), SizedBox(width: 8), Text('Export Timelapse')]),
+              child: Row(
+                children: [
+                  Icon(Icons.movie, size: 20, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Export Timelapse', style: TextStyle(color: Colors.white)),
+                ],
+              ),
             ),
             PopupMenuItem(
               value: 'backup',
-              child: Row(children: [Icon(Icons.backup, size: 20), SizedBox(width: 8), Text('Backup')]),
+              child: Row(
+                children: [
+                  Icon(Icons.backup, size: 20, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Backup', style: TextStyle(color: Colors.white)),
+                ],
+              ),
             ),
           ],
         ),

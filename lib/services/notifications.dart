@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tzdata;
+import 'package:permission_handler/permission_handler.dart';
 
 final FlutterLocalNotificationsPlugin _plugin = FlutterLocalNotificationsPlugin();
 TimeOfDay reminderTime = const TimeOfDay(hour: 20, minute: 0);
@@ -14,6 +15,11 @@ Future<void> initNotifications() async {
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
   const initSettings = InitializationSettings(android: androidInit);
   await _plugin.initialize(initSettings);
+  if (Platform.isAndroid) {
+    if (!await Permission.notification.isGranted) {
+      await Permission.notification.request();
+    }
+  }
   _initialized = true;
 }
 
@@ -54,8 +60,8 @@ Future<void> scheduleDailyReminder({TimeOfDay? time}) async {
     'everyday_lilly_daily',
     'Daily Reminders',
     channelDescription: 'Daily photo reminder',
-    importance: Importance.defaultImportance,
-    priority: Priority.defaultPriority,
+    importance: Importance.max,
+    priority: Priority.high,
   );
   const details = NotificationDetails(android: androidDetails);
 

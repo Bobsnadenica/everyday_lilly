@@ -5,6 +5,9 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import 'package:everyday_lilly/services/achievement_service.dart';
 
 import '../../models/calendar.dart';
 import '../../services/storage_service.dart';
@@ -13,7 +16,7 @@ import '../../services/timelapse_service.dart';
 import '../../services/notifications.dart';
 import '../front_page.dart';
 import '../photo_gallery.dart';
-import 'achievements_page.dart';
+import 'package:everyday_lilly/pages/achievements/achievements_page.dart';
 import 'calendar_appbar.dart';
 import 'background_layer.dart';
 import 'month_view.dart';
@@ -27,6 +30,8 @@ class CalendarPage extends StatefulWidget {
 }
 
 class _CalendarPageState extends State<CalendarPage> {
+  static const String _savedReminderKey = 'saved_reminder_time';
+
   late final PageController _pageController;
   late int _currentYear;
   late String _backgroundPath;
@@ -53,7 +58,23 @@ class _CalendarPageState extends State<CalendarPage> {
     _backup = BackupService(getCalendarDirectory: _storage.getCalendarDirectory);
 
     _loadAll();
-    scheduleDailyReminder();
+    _loadSavedReminder();
+  }
+
+  Future<void> _loadSavedReminder() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedTimeStr = prefs.getString(_savedReminderKey);
+    if (savedTimeStr != null) {
+      final parts = savedTimeStr.split(':');
+      if (parts.length == 2) {
+        final hour = int.tryParse(parts[0]);
+        final minute = int.tryParse(parts[1]);
+        if (hour != null && minute != null) {
+          final savedTime = TimeOfDay(hour: hour, minute: minute);
+          await scheduleDailyReminder(time: savedTime);
+        }
+      }
+    }
   }
 
   Future<void> _loadAll() async {
@@ -107,6 +128,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final picked = await _picker.pickImage(source: ImageSource.camera);
     if (picked != null) {
       final saved = await _storage.savePhotoFile(date, File(picked.path));
+      await AchievementService.recordPhotoTaken();
       final key = StorageService.keyFor(date);
       setState(() => _photos[key] = saved);
     }
@@ -122,6 +144,7 @@ class _CalendarPageState extends State<CalendarPage> {
     final picked = await _picker.pickImage(source: ImageSource.gallery);
     if (picked != null) {
       final saved = await _storage.savePhotoFile(date, File(picked.path));
+      await AchievementService.recordPhotoTaken();
       final key = StorageService.keyFor(date);
       setState(() => _photos[key] = saved);
     }
@@ -153,7 +176,12 @@ class _CalendarPageState extends State<CalendarPage> {
                 }
               });
               await _storage.saveNotes(_notes);
-              if (mounted) Navigator.pop(context);
+// ✅ Track note achievement
+if (note.isNotEmpty) {
+  await AchievementService.recordNoteAdded();
+}
+
+if (mounted) Navigator.pop(context);
             },
             child: const Text('Save'),
           ),
@@ -231,7 +259,10 @@ class _CalendarPageState extends State<CalendarPage> {
   Future<void> _pickReminderTime() async {
     final time = await showTimePicker(context: context, initialTime: reminderTime);
     if (time != null) {
+      // Schedule the reminder first
       await scheduleDailyReminder(time: time);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_savedReminderKey, '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}');
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Reminder set for ${time.format(context)}')),

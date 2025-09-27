@@ -20,9 +20,21 @@ class _FrontPageState extends State<FrontPage> {
 
   String _currentLanguage = 'bg';
 
+  static const double _flagWidth = 40;
+  static const double _flagHeight = 24;
+
+  static final BoxDecoration _flagBorder = BoxDecoration(
+    border: Border.all(color: Colors.green, width: 2),
+    borderRadius: BorderRadius.circular(4),
+  );
+
   @override
   void initState() {
     super.initState();
+    _initializeVideoController();
+  }
+
+  void _initializeVideoController() {
     final random = Random();
     final selectedVideo = _videos[random.nextInt(_videos.length)];
     _controller = VideoPlayerController.asset(selectedVideo)
@@ -34,9 +46,26 @@ class _FrontPageState extends State<FrontPage> {
   }
 
   void _switchLanguage(String lang) {
+    if (_currentLanguage == lang) return;
     setState(() {
       _currentLanguage = lang;
     });
+  }
+
+  Widget _buildFlagButton(String lang, CustomPainter painter) {
+    final bool isSelected = _currentLanguage == lang;
+    return GestureDetector(
+      onTap: () => _switchLanguage(lang),
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 6),
+        decoration: isSelected ? _flagBorder : null,
+        child: SizedBox(
+          width: _flagWidth,
+          height: _flagHeight,
+          child: CustomPaint(painter: painter),
+        ),
+      ),
+    );
   }
 
   @override
@@ -47,10 +76,10 @@ class _FrontPageState extends State<FrontPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       body: Stack(
         children: [
-          // Background video
           Positioned.fill(
             child: _controller.value.isInitialized
                 ? FittedBox(
@@ -69,44 +98,9 @@ class _FrontPageState extends State<FrontPage> {
             right: 16,
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                GestureDetector(
-                  onTap: () => _switchLanguage('bg'),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      border: _currentLanguage == 'bg'
-                          ? Border.all(color: Colors.green, width: 2)
-                          : null,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Image.network(
-                      'https://flagcdn.com/w40/bg.png',
-                      width: 40,
-                      height: 24,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
-                GestureDetector(
-                  onTap: () => _switchLanguage('en'),
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 6),
-                    decoration: BoxDecoration(
-                      border: _currentLanguage == 'en'
-                          ? Border.all(color: Colors.green, width: 2)
-                          : null,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Image.network(
-                      'https://flagcdn.com/w40/us.png',
-                      width: 40,
-                      height: 24,
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
+                _buildFlagButton('bg', BGFlagPainter()),
+                _buildFlagButton('en', USFlagPainter()),
               ],
             ),
           ),
@@ -114,15 +108,12 @@ class _FrontPageState extends State<FrontPage> {
             child: Padding(
               padding: const EdgeInsets.all(_horizontalPadding),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   _Logo(),
                   const SizedBox(height: 28),
                   _Title(language: _currentLanguage),
                   const SizedBox(height: 16),
-                  // Frosted glass effect only behind description
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: BackdropFilter(
@@ -250,4 +241,67 @@ class _OpenCalendarButton extends StatelessWidget {
       ),
     );
   }
+}
+// --- Custom Painters for Flags ---
+
+class BGFlagPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()..style = PaintingStyle.fill;
+    // White stripe (top third)
+    paint.color = Colors.white;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height / 3), paint);
+    // Green stripe (middle third)
+    paint.color = Colors.green;
+    canvas.drawRect(Rect.fromLTWH(0, size.height / 3, size.width, size.height / 3), paint);
+    // Red stripe (bottom third)
+    paint.color = Colors.red;
+    canvas.drawRect(Rect.fromLTWH(0, 2 * size.height / 3, size.width, size.height / 3), paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+}
+
+class USFlagPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Draw red background
+    final redPaint = Paint()..color = Colors.red..style = PaintingStyle.fill;
+    canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), redPaint);
+
+    // Draw white stripes (7 total, starting with red at top)
+    final stripeHeight = size.height / 13;
+    final whitePaint = Paint()..color = Colors.white..style = PaintingStyle.fill;
+    for (int i = 1; i < 13; i += 2) {
+      canvas.drawRect(
+        Rect.fromLTWH(0, i * stripeHeight, size.width, stripeHeight),
+        whitePaint,
+      );
+    }
+
+    // Draw blue canton
+    final cantonWidth = size.width * 0.4;
+    final cantonHeight = stripeHeight * 7;
+    final bluePaint = Paint()..color = Colors.blue[800] ?? Colors.blue..style = PaintingStyle.fill;
+    canvas.drawRect(Rect.fromLTWH(0, 0, cantonWidth, cantonHeight), bluePaint);
+
+    // Draw white circles for stars (6 rows of 5, 5 rows of 4, simplified)
+    final starRadius = stripeHeight * 0.20;
+    final rowCount = 9;
+    final colCountOdd = 6;
+    final colCountEven = 5;
+    for (int row = 0; row < rowCount; row++) {
+      final isOddRow = row % 2 == 0;
+      final starsInRow = isOddRow ? colCountOdd : colCountEven;
+      final y = (row + 1) * cantonHeight / (rowCount + 1);
+      for (int col = 0; col < starsInRow; col++) {
+        final x = (col + 1) * cantonWidth / (starsInRow + 1);
+        canvas.drawCircle(Offset(x, y), starRadius, whitePaint);
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }

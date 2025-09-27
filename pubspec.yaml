@@ -20,6 +20,7 @@ dependencies:
   archive: ^3.6.1
   shared_preferences: ^2.3.2
   flutter_timezone: ^5.0.0
+  permission_handler: ^11.0.1
 
 dev_dependencies:
   flutter_test:
@@ -45,3 +46,5 @@ flutter:
     - assets/backgrounds/front_page/
     - assets/quotes/motivational_quotes.txt
     - assets/rewards/
+    - assets/achievements/
+    - assets/icons/

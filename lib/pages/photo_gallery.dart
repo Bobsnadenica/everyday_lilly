@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:cross_file/cross_file.dart';
+import 'package:everyday_lilly/services/achievement_service.dart';
 
 class PhotoGallery extends StatefulWidget {
   final Map<String, File> photos;
@@ -33,6 +34,11 @@ class _PhotoGalleryState extends State<PhotoGallery> {
     keys = widget.photos.keys.toList()..sort();
     final initialIndex = keys.indexOf(widget.initialPhotoKey);
     _controller = PageController(initialPage: initialIndex);
+    _onPhotoViewedOrAdded();
+  }
+
+  void _onPhotoViewedOrAdded() {
+    AchievementService.recordPhotoTaken();
   }
 
   void _deletePhoto(int index) {
