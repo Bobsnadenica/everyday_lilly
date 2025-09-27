@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:everyday_lilly/services/storage_service.dart';
 
 class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
+  final String calendarId;
   final VoidCallback onHome;
   final VoidCallback onAchievements;
   final VoidCallback onBackYear;
@@ -11,6 +14,7 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   const CalendarAppBar({
     super.key,
+    required this.calendarId,
     required this.onHome,
     required this.onAchievements,
     required this.onBackYear,
@@ -22,6 +26,14 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   @override
   Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) return "$bytes B";
+    final kb = bytes / 1024;
+    if (kb < 1024) return "${kb.toStringAsFixed(2)} KB";
+    final mb = kb / 1024;
+    return "${mb.toStringAsFixed(2)} MB";
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,7 +53,7 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
         IconButton(icon: const Icon(Icons.arrow_forward), onPressed: onForwardYear),
         PopupMenuButton<String>(
           color: Colors.black87,
-          onSelected: (v) {
+          onSelected: (v) async {
             switch (v) {
               case 'reminder':
                 onReminder();
@@ -50,7 +62,29 @@ class CalendarAppBar extends StatelessWidget implements PreferredSizeWidget {
                 onTimelapse();
                 break;
               case 'backup':
-                onBackup();
+                final storage = StorageService(calendarId);
+                final calendarSize = await storage.calendarSizeBytes();
+                final formattedSize = _formatBytes(calendarSize);
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                    title: const Text('Backup Confirmation'),
+                    content: Text('Your calendar size is $formattedSize. Do you want to proceed with backup?'),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(false),
+                        child: const Text('Cancel'),
+                      ),
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(true),
+                        child: const Text('Backup Now'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  onBackup();
+                }
                 break;
             }
           },

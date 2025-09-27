@@ -412,6 +412,7 @@ if (mounted) Navigator.pop(context);
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: CalendarAppBar(
+        calendarId: widget.calendar.id,
         onHome: () {
           Navigator.of(context).pushAndRemoveUntil(
             MaterialPageRoute(builder: (_) => const FrontPage()),

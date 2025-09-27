@@ -27,8 +27,8 @@ android {
         applicationId = "com.privileged.everyday_lilly"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
-        versionCode = 11
-        versionName = "11.0.0"
+        versionCode = 12
+        versionName = "12.0.0"
     }
 
     // Ensure backward compatibility with older plugins

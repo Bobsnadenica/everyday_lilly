@@ -9,23 +9,47 @@ class BackupService {
   BackupService({required this.getCalendarDirectory});
 
   Future<void> exportBackupZip(BuildContext context, String calendarName) async {
+    ZipFileEncoder? encoder;
     try {
       final calendarDir = await getCalendarDirectory();
+
+      if (!await calendarDir.exists()) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No data to backup.')),
+        );
+        return;
+      }
+
+      final files = calendarDir.listSync(recursive: true).whereType<File>().toList();
+      if (files.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No files found to backup.')),
+        );
+        return;
+      }
+
       final tempDir = await getTemporaryDirectory();
       final zipPath = '${tempDir.path}/${calendarName}_backup.zip';
 
-      final encoder = ZipFileEncoder();
-      encoder.create(zipPath);
-      for (final entity in calendarDir.listSync(recursive: true)) {
-        if (entity is File) encoder.addFile(entity);
+      encoder = ZipFileEncoder()..create(zipPath);
+      for (final file in files) {
+        encoder.addFile(file);
       }
       encoder.close();
+      encoder = null;
 
       await Share.shareXFiles([XFile(zipPath)], text: 'Backup of $calendarName');
+
+      try {
+        final tempZip = File(zipPath);
+        if (await tempZip.exists()) await tempZip.delete();
+      } catch (_) {}
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create backup.')),
+        SnackBar(content: Text('Backup failed: $e')),
       );
+    } finally {
+      encoder?.close();
     }
   }
 }
